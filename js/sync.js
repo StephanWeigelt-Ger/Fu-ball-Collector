@@ -81,7 +81,16 @@ function photoIds(c){return [c.fotoVorne,c.fotoHinten,c.fotoVorneOriginal,c.foto
 
 /* ---------- Abgleich ---------- */
 let running=null,again=false;
+/* Liegt im App-Ordner eine Sicherungsdatei "import.json", wird sie einmalig eingespielt und danach gelöscht. */
+async function importFromDropbox(){
+  const f=await download("/import.json");if(!f)return;
+  let obj;try{obj=JSON.parse(await f.blob.text())}catch(e){throw new Error("import.json in der Dropbox ist keine gültige Sicherung.")}
+  const r=await Store.importBackup(obj);
+  await remove("/import.json");
+  listeners.forEach(fn=>{try{fn(status,{importiert:r})}catch(e){}});
+}
 async function syncOnce(){
+  await importFromDropbox();
   for(let versuch=0;versuch<4;versuch++){
     const rem=await download("/karten.json");
     let remote={karten:[],geloescht:{}};

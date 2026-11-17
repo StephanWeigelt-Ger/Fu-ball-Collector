@@ -1,5 +1,5 @@
 /* Fußball-Collector – App-Logik. Daten: siehe store.js (lokal auf dem Gerät). */
-const APP_VERSION="1.1.1";
+const APP_VERSION="1.2.0";
 const TYPES=["Rookie","Nummeriert","One-of-One","Autogramm","Patch / Trikot","Parallel / Refractor","Insert","Short Print","Graded"];
 const GOLD=new Set(["One-of-One","Autogramm","Patch / Trikot"]);
 const $=id=>document.getElementById(id);
@@ -335,7 +335,7 @@ $("btnDisconnect").onclick=async()=>{await Sync.disconnect();renderCloud();menuM
 $("lnkCode").onclick=async e=>{e.preventDefault();const w=window.open("about:blank","_blank");try{const u=await Sync.codeUrl();if(w)w.location.href=u;else location.href=u}catch(err){if(w)w.close();menuMsg(err.message)}};
 $("btnCode").onclick=async()=>{const c=$("iCode").value;if(!c.trim())return;menuMsg("Wird angemeldet …");
   try{await Sync.finishWithCode(c);$("iCode").value="";menuMsg("Mit Dropbox verbunden.");renderCloud();Sync.sync()}catch(e){menuMsg("Anmeldung fehlgeschlagen: "+e.message)}};
-Sync.onStatus(renderCloud);
+Sync.onStatus((st,extra)=>{renderCloud();if(extra&&extra.importiert){const r=extra.importiert;showMsg("Sicherung aus der Dropbox eingespielt: "+r.neu+" neue Karte"+(r.neu===1?"":"n")+", "+r.akt+" aktualisiert.")}});
 
 async function reload(){try{cards=await Store.allCards()}catch(e){showMsg("Die Sammlung konnte nicht geladen werden. Bitte lade die Seite neu.")}render()}
 Store.onChange(reload);
