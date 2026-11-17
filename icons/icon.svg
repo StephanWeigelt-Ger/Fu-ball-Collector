@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a4fb0"/>
+      <stop offset="1" stop-color="#14286a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Rasen -->
+  <path d="M0 438 Q256 400 512 438 V512 H0Z" fill="#2f9e55"/>
+  <!-- Spieler -->
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M236 194 L252 292" stroke-width="62"/>
+    <path d="M234 206 L302 232 L354 204" stroke-width="34"/>
+    <path d="M228 208 L170 256 L132 238" stroke-width="34"/>
+    <path d="M250 292 L222 368 L176 432" stroke-width="40"/>
+    <path d="M250 292 L326 326 L372 392" stroke-width="40"/>
+  </g>
+  <circle cx="224" cy="112" r="38" fill="#ffffff"/>
+  <!-- Ball -->
+  <g transform="translate(418 396)">
+    <circle r="40" fill="#ffffff" stroke="#14286a" stroke-width="5"/>
+    <path d="M0 -14 L13.3 -4.3 L8.2 11.3 L-8.2 11.3 L-13.3 -4.3Z" fill="#14286a"/>
+    <g stroke="#14286a" stroke-width="5" stroke-linecap="round">
+      <path d="M0 -14 V-37"/><path d="M13.3 -4.3 L35 -11"/><path d="M8.2 11.3 L21.5 30"/>
+      <path d="M-8.2 11.3 L-21.5 30"/><path d="M-13.3 -4.3 L-35 -11"/>
+    </g>
+  </g>
+</svg>
