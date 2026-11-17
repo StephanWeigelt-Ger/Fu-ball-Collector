@@ -1,7 +1,7 @@
 /* Service Worker: macht die App offline nutzbar.
    Bei jeder Änderung an App-Dateien die Versionsnummer erhöhen, damit alle Geräte das Update laden. */
-const CACHE="fussball-collector-v1.0.0";
-const FILES=["./","index.html","css/app.css","js/cardproc.js","js/store.js","js/app.js","manifest.webmanifest",
+const CACHE="fussball-collector-v1.1.0";
+const FILES=["./","index.html","css/app.css","js/cardproc.js","js/config.js","js/store.js","js/sync.js","js/app.js","manifest.webmanifest",
   "icons/icon.svg","icons/icon-192.png","icons/icon-512.png","icons/apple-touch-icon.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

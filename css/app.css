@@ -156,3 +156,12 @@ img{max-width:100%}
 .mh{margin:8px 0 0;font-family:var(--f-display);font-size:1.3rem}
 .install{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
 @media (max-width:480px){h1{font-size:2rem}.brand img{width:44px;height:44px;border-radius:11px}}
+.btn.cloud{gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--up)}.dot.laeuft{background:var(--foil)}.dot.fehler{background:var(--danger)}.dot.offline{background:var(--muted)}
+.connect{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.codebox{font-size:.9rem;margin-top:10px}
+.codebox summary{cursor:pointer;color:var(--muted)}
+.codebox ol{padding-left:18px}
+.codebox input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);flex:1 1 180px;min-width:0}
+@media (max-width:480px){#cloudText{display:none}}

@@ -29,12 +29,17 @@
       </div>
     </div>
     <div class="actions">
+      <button class="btn cloud" id="btnCloud" type="button"><span class="dot" id="cloudDot"></span><span id="cloudText">Dropbox</span></button>
       <button class="btn" id="btnMenu">Sichern &amp; Laden</button>
       <button class="btn primary" id="btnAdd">+ Karte hinzufügen</button>
     </div>
   </div>
 
   <div id="msg" class="notice" hidden></div>
+  <div id="connectBox" class="notice connect" hidden>
+    <div><strong>Mit Dropbox verbinden</strong><br>Deine Karten und Fotos werden dann in deiner eigenen Dropbox gespeichert und sind auf allen deinen Geräten gleich.</div>
+    <button class="btn primary" id="btnConnect2" type="button">Mit Dropbox verbinden</button>
+  </div>
 
   <div class="stats">
     <div class="stat"><b id="sCount">–</b><span>Karten</span></div>
@@ -163,7 +168,24 @@
       <button type="button" class="btn back" id="btnMenuClose">← Zurück</button>
       <h2 id="menuTitle" style="font-size:1.4rem">Sichern &amp; Laden</h2>
     </div>
-    <p>Deine Karten werden nur auf diesem Gerät gespeichert. Niemand sonst sieht sie. Erstelle regelmäßig eine Sicherung, damit nichts verloren geht, und nutze sie auch, um die Sammlung auf ein anderes Gerät zu übertragen.</p>
+    <h3 class="mh">Dropbox</h3>
+    <div id="dbxOn" hidden>
+      <p>Verbunden mit <b id="dbxName">deiner Dropbox</b>. Karten und Fotos liegen im Ordner „Apps/Fussball-Collector“ und werden automatisch abgeglichen.</p>
+      <p class="hint" id="dbxState"></p>
+      <div class="actions"><button class="btn" id="btnSyncNow" type="button">Jetzt abgleichen</button><button class="btn ghost" id="btnDisconnect" type="button">Verbindung trennen</button></div>
+    </div>
+    <div id="dbxOff" hidden>
+      <p>Noch nicht verbunden. Bis dahin liegen die Karten nur auf diesem Gerät.</p>
+      <div class="actions"><button class="btn primary" id="btnConnect" type="button">Mit Dropbox verbinden</button></div>
+      <details class="codebox"><summary>Anmeldung klappt nicht? Mit Code anmelden</summary>
+        <ol><li><a href="#" id="lnkCode" target="_blank" rel="noopener">Code bei Dropbox holen</a> (öffnet Dropbox, dort „Zulassen“).</li>
+        <li>Den angezeigten Code kopieren und hier einfügen:</li></ol>
+        <div class="actions"><input id="iCode" autocomplete="off" placeholder="Code von Dropbox"><button class="btn" id="btnCode" type="button">Anmelden</button></div>
+      </details>
+    </div>
+    <p id="dbxNoKey" class="hint" hidden>Für diese Installation ist noch keine Dropbox-App hinterlegt (js/config.js).</p>
+    <h3 class="mh">Sicherungsdatei</h3>
+    <p class="hint">Zusätzlich zur Dropbox kannst du eine Datei mit allen Karten und Fotos herunterladen oder eine solche Datei einspielen.</p>
     <div class="menu">
       <button class="btn primary" id="btnBackup">Sicherung herunterladen</button>
       <span class="hint">Eine Datei mit allen Karten und Fotos.</span>
@@ -188,7 +210,9 @@
 <div class="lightbox" id="lightbox" hidden></div>
 
 <script src="js/cardproc.js"></script>
+<script src="js/config.js"></script>
 <script src="js/store.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

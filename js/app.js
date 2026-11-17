@@ -1,5 +1,5 @@
 /* Fußball-Collector – App-Logik. Daten: siehe store.js (lokal auf dem Gerät). */
-const APP_VERSION="1.0.0";
+const APP_VERSION="1.1.0";
 const TYPES=["Rookie","Nummeriert","One-of-One","Autogramm","Patch / Trikot","Parallel / Refractor","Insert","Short Print","Graded"];
 const GOLD=new Set(["One-of-One","Autogramm","Patch / Trikot"]);
 const $=id=>document.getElementById(id);
@@ -278,7 +278,7 @@ $("formSheet").addEventListener("click",e=>{if(e.target===$("formSheet"))closeFo
 /* Sichern & Laden */
 function menuMsg(t){$("menuMsg").textContent=t;$("menuMsg").hidden=!t}
 async function showLastBackup(){const d=await Store.getMeta("letzteSicherung").catch(()=>null);$("lastBackup").textContent=d?"Letzte Sicherung: "+fdate(d):"Noch keine Sicherung erstellt."}
-function openMenu(){menuMsg("");showLastBackup();$("menuSheet").hidden=false;setTimeout(()=>$("btnMenuClose").focus(),50)}
+function openMenu(){menuMsg("");showLastBackup();renderCloud();$("menuSheet").hidden=false;setTimeout(()=>$("btnMenuClose").focus(),50)}
 function closeMenu(){$("menuSheet").hidden=true}
 $("btnMenu").onclick=openMenu;$("btnMenuClose").onclick=closeMenu;
 $("menuSheet").addEventListener("click",e=>{if(e.target===$("menuSheet"))closeMenu()});
@@ -315,12 +315,36 @@ $("btnCsv").onclick=()=>{
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("lightbox").hidden)$("lightbox").hidden=true;else if(!$("menuSheet").hidden)closeMenu();else if(!$("formSheet").hidden)closeForm();else if(!$("detailSheet").hidden)closeDetail()}});
 ["q","fClub","fType","fLager","sort"].forEach(id=>$(id).addEventListener("input",render));
 
+/* Dropbox */
+const tfmt=new Intl.DateTimeFormat("de-DE",{hour:"2-digit",minute:"2-digit"});
+function renderCloud(){
+  const on=Sync.connected(),st=Sync.status(),conf=Sync.configured();
+  $("cloudDot").className="dot "+(on?st.state:"");
+  $("cloudText").textContent=!on?"Dropbox verbinden":st.state==="ok"?"Dropbox ✓":st.state==="laeuft"?"Speichert …":st.state==="offline"?"Offline":"Dropbox !";
+  $("btnCloud").title=on?(st.text+(st.when?" ("+tfmt.format(st.when)+")":"")):"Mit Dropbox verbinden";
+  $("dbxOn").hidden=!on;$("dbxOff").hidden=on||!conf;$("dbxNoKey").hidden=conf;
+  $("dbxName").textContent=Sync.account()||"deiner Dropbox";
+  $("dbxState").textContent=on?st.text+(st.when?" · "+tfmt.format(st.when)+" Uhr":""):"";
+  $("connectBox").hidden=on||!conf;
+}
+async function doConnect(){try{await Sync.connect()}catch(e){showMsg(e.message)}}
+$("btnCloud").onclick=openMenu;
+$("btnConnect").onclick=doConnect;$("btnConnect2").onclick=doConnect;
+$("btnSyncNow").onclick=()=>Sync.sync();
+$("btnDisconnect").onclick=async()=>{await Sync.disconnect();renderCloud();menuMsg("Verbindung getrennt. Die Karten bleiben in deiner Dropbox und als Kopie auf diesem Gerät.")};
+$("lnkCode").onclick=async e=>{e.preventDefault();const w=window.open("about:blank","_blank");try{const u=await Sync.codeUrl();if(w)w.location.href=u;else location.href=u}catch(err){if(w)w.close();menuMsg(err.message)}};
+$("btnCode").onclick=async()=>{const c=$("iCode").value;if(!c.trim())return;menuMsg("Wird angemeldet …");
+  try{await Sync.finishWithCode(c);$("iCode").value="";menuMsg("Mit Dropbox verbunden.");renderCloud();Sync.sync()}catch(e){menuMsg("Anmeldung fehlgeschlagen: "+e.message)}};
+Sync.onStatus(renderCloud);
+
 async function reload(){try{cards=await Store.allCards()}catch(e){showMsg("Die Sammlung konnte nicht geladen werden. Bitte lade die Seite neu.")}render()}
 Store.onChange(reload);
 
 (async()=>{
   if(!window.indexedDB){showMsg("Dieser Browser kann keine Daten speichern. Bitte nutze Safari, Chrome oder Edge und keinen privaten Modus.");render();return}
   await reload();
+  try{const r=await Sync.init();if(r==="ok")showMsg("Mit Dropbox verbunden. Deine Karten werden jetzt dort gespeichert.");else if(r)showMsg(r)}catch(e){console.error(e)}
+  renderCloud();
   try{if(navigator.storage&&navigator.storage.persist)await navigator.storage.persist()}catch(e){}
   if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();

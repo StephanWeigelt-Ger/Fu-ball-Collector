@@ -14,15 +14,22 @@ Adresse: **https://stephanweigelt-ger.github.io/Fu-ball-Collector/**
 
 ## Wo liegen die Daten?
 
-Alle Karten und Fotos werden **nur lokal auf dem jeweiligen Gerät** gespeichert (IndexedDB des Browsers). Es gibt keinen Server und kein Konto. Jeder, der die App öffnet, startet mit einer leeren Sammlung.
+In der **eigenen Dropbox** jedes Nutzers. Beim ersten Start auf „Mit Dropbox verbinden“ tippen und bei Dropbox anmelden. Die App bekommt nur Zugriff auf ihren eigenen Ordner **„Apps/Fussball-Collector“**, nicht auf die übrige Dropbox:
 
-Über **„Sichern & Laden“** lässt sich
+- `karten.json` – alle Karten
+- `fotos/<id>.jpg` – die Fotos
 
-- eine **Sicherung** (eine `.json`-Datei mit allen Karten und Fotos) herunterladen,
-- eine Sicherung **einspielen**, z. B. auf einem anderen Gerät,
-- die Sammlung als **CSV-Tabelle** für Excel exportieren.
+Jedes Gerät, das mit derselben Dropbox verbunden ist, zeigt dieselbe Sammlung. Wer sich mit einer anderen Dropbox anmeldet, startet leer. Änderungen werden automatisch abgeglichen; ohne Internet arbeitet die App mit einer Kopie auf dem Gerät weiter und gleicht später ab.
 
-Tipp: Regelmäßig eine Sicherung erstellen, z. B. in iCloud Drive oder Dropbox. Wird die App gelöscht oder der Browserspeicher geleert, sind die Daten sonst weg.
+Über **„Sichern & Laden“** lässt sich zusätzlich eine Sicherungsdatei (`.json` mit allen Karten und Fotos) herunterladen oder einspielen sowie eine CSV-Tabelle für Excel exportieren.
+
+### Dropbox-App einrichten (einmalig, für den Betreiber)
+
+1. https://www.dropbox.com/developers/apps → „Create app“ → „Scoped access“ → „App folder“.
+2. Reiter „Permissions“: `files.content.write` und `files.content.read` aktivieren, „Submit“.
+3. Reiter „Settings“ → „Redirect URIs“: die Adresse der App eintragen (z. B. `https://stephanweigelt-ger.github.io/Fu-ball-Collector/`).
+4. Den „App key“ in `js/config.js` eintragen. Das „App secret“ wird nicht gebraucht.
+5. Solange die Dropbox-App im Status „Development“ ist, können sich bis zu 500 Nutzer verbinden. Für mehr in der Dropbox-Konsole „Apply for production“ wählen.
 
 ## Aufbau des Codes
 
@@ -33,7 +40,9 @@ Keine Abhängigkeiten, kein Build-Schritt. Einfach die Dateien auf einen Webserv
 | `index.html` | Seitenaufbau |
 | `css/app.css` | Gestaltung (heller und dunkler Modus) |
 | `js/app.js` | App-Logik: Liste, Filter, Formular, Sichern & Laden |
-| `js/store.js` | Lokale Datenhaltung (IndexedDB) und Sicherungsformat |
+| `js/config.js` | Einstellungen, u. a. Dropbox-App-Schlüssel |
+| `js/store.js` | Lokale Kopie der Daten (IndexedDB) und Sicherungsformat |
+| `js/sync.js` | Dropbox-Anmeldung und Abgleich |
 | `js/cardproc.js` | Fotobearbeitung: Karte erkennen, entzerren, Licht korrigieren |
 | `sw.js` | Service Worker für Offline-Betrieb |
 | `manifest.webmanifest`, `icons/` | App-Name und Logo für die Installation |
