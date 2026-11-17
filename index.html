@@ -44,7 +44,7 @@
   <div class="stats">
     <div class="stat"><b id="sCount">–</b><span>Karten</span></div>
     <div class="stat"><b id="sSum">–</b><span>Ankauf gesamt</span></div>
-    <div class="stat value"><b id="sValue">–</b><span>Marktwert gesamt</span><small id="sValueSub"></small></div>
+    <div class="stat value"><b id="sValue">–</b><span>Marktwert gesamt</span><small id="sValueSub"></small><small>Neubewertung sonntags 23:59 Uhr</small></div>
     <div class="stat"><b id="sDiff">–</b><span>Wertänderung</span><small>Karten mit Ankaufspreis</small></div>
     <div class="stat"><b id="sNum">–</b><span>Nummeriert</span></div>
     <div class="stat foil"><b id="sOne">–</b><span>One-of-One</span></div>
@@ -143,7 +143,7 @@
       <label class="f">Kaufjahr<input id="iKaufjahr" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="z. B. 2026"></label>
     </div>
     <div class="grid2">
-      <label class="f">Marktwert (€)<input id="iWert" inputmode="decimal" autocomplete="off" placeholder="z. B. 30,00"><span class="hint">Aktueller Wert, z. B. aus eBay-Verkäufen.</span></label>
+      <label class="f">Marktwert (€)<input id="iWert" inputmode="decimal" autocomplete="off" placeholder="z. B. 30,00"><span class="hint">Leer lassen: Claude ermittelt ihn sonntags um 23:59 Uhr.</span></label>
       <label class="f">Marktwert-Hinweis<input id="iWertHinweis" autocomplete="off" placeholder="z. B. 3 Verkäufe auf eBay"></label>
     </div>
     <label class="f">Lagerort<input id="iLager" list="lagerList" autocomplete="off" placeholder="z. B. Ordner 2, Seite 14, Fach 3"><span class="hint">Bereits verwendete Lagerorte werden beim Tippen vorgeschlagen.</span></label>

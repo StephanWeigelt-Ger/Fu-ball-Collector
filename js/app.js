@@ -1,5 +1,5 @@
 /* Fußball-Collector – App-Logik. Daten: siehe store.js (lokal auf dem Gerät). */
-const APP_VERSION="1.2.0";
+const APP_VERSION="1.3.0";
 const TYPES=["Rookie","Nummeriert","One-of-One","Autogramm","Patch / Trikot","Parallel / Refractor","Insert","Short Print","Graded"];
 const GOLD=new Set(["One-of-One","Autogramm","Patch / Trikot"]);
 const $=id=>document.getElementById(id);
@@ -71,8 +71,8 @@ function render(){
     const t4=el("td");const ch=el("div","chips");tagsOf(c).forEach(t=>ch.append(el("span","chip"+(GOLD.has(t)?" gold":""),t)));t4.append(ch);
     const t5=el("td","num",c.preis!=null?eur.format(c.preis):"—");
     const t5b=el("td","num");
-    if(hasValue(c)){t5b.append(el("div","mv",eur.format(c.marktwert)));const d=diffEl(c);if(d)t5b.append(d);if(c.bewertetAm)t5b.append(el("div","mvsub","Stand "+fdate(c.bewertetAm)))}
-    else t5b.append(el("span","chip wait","Noch nicht bewertet"));
+    if(hasValue(c)){t5b.append(el("div","mv",eur.format(c.marktwert)));const d=diffEl(c);if(d)t5b.append(d);if(c.bewertetAm)t5b.append(el("div","mvsub","Stand "+fdate(c.bewertetAm)));if(c.bewertungAngefragt)t5b.append(el("div","mvsub","Neubewertung angefragt"))}
+    else t5b.append(el("span","chip wait",c.bewertungAngefragt?"Bewertung angefragt":"Noch nicht bewertet"));
     const t6=el("td","num",c.kaufjahr||"—");
     const t6b=el("td");t6b.append(el("div","set",c.lagerort||"—"));
     const t7=el("td");t7.append(el("div","notes",c.notiz||""));
@@ -118,8 +118,13 @@ function renderDetail(c){
       t.append(tb);box.append(t);det.append(box);vb.append(det);
     }
   }else{
-    vb.append(el("div","mvsub","Diese Karte ist noch nicht bewertet. Trage den Marktwert über „✎ Ändern“ ein."));
+    vb.append(el("div","mvsub",c.bewertungAngefragt?"Bewertung angefragt. Claude recherchiert die Preise am Sonntag um 23:59 Uhr.":"Diese Karte ist noch nicht bewertet."));
   }
+  const rq=el("button","btn small",hasValue(c)?"Wert neu ermitteln lassen":"Wert ermitteln lassen");rq.type="button";
+  if(c.bewertungAngefragt){rq.disabled=true;rq.textContent="Bewertung für Sonntag angefragt"}
+  rq.onclick=async()=>{rq.disabled=true;try{await Store.putCard({...c,bewertungAngefragt:true,bewertungAngefragtAm:new Date().toISOString()})}catch(e){rq.disabled=false;showMsg("Die Anfrage konnte nicht gespeichert werden.")}};
+  vb.append(rq);
+  if(!Sync.connected())vb.append(el("div","hint","Die automatische Bewertung funktioniert nur, wenn die App mit Dropbox verbunden ist."));
   p.append(vb);
   // Fakten
   const dl=el("dl","facts");
@@ -256,7 +261,7 @@ $("form").addEventListener("submit",async e=>{
       await Store.putCard({...before,...data});
       await dropUnusedPhotos(photoIds(before).filter(id=>!photoIds({...before,...data}).includes(id)),null);
     }else{
-      await Store.putCard({...data,id:Store.newId(),erstellt:new Date().toISOString()});
+      await Store.putCard({...data,id:Store.newId(),erstellt:new Date().toISOString(),bewertungAngefragt:wert==null,bewertungAngefragtAm:wert==null?new Date().toISOString():null});
     }
     closeForm();
   }catch(ex){
@@ -335,7 +340,7 @@ $("btnDisconnect").onclick=async()=>{await Sync.disconnect();renderCloud();menuM
 $("lnkCode").onclick=async e=>{e.preventDefault();const w=window.open("about:blank","_blank");try{const u=await Sync.codeUrl();if(w)w.location.href=u;else location.href=u}catch(err){if(w)w.close();menuMsg(err.message)}};
 $("btnCode").onclick=async()=>{const c=$("iCode").value;if(!c.trim())return;menuMsg("Wird angemeldet …");
   try{await Sync.finishWithCode(c);$("iCode").value="";menuMsg("Mit Dropbox verbunden.");renderCloud();Sync.sync()}catch(e){menuMsg("Anmeldung fehlgeschlagen: "+e.message)}};
-Sync.onStatus((st,extra)=>{renderCloud();if(extra&&extra.importiert){const r=extra.importiert;showMsg("Sicherung aus der Dropbox eingespielt: "+r.neu+" neue Karte"+(r.neu===1?"":"n")+", "+r.akt+" aktualisiert.")}});
+Sync.onStatus((st,extra)=>{renderCloud();if(extra&&extra.bewertet)showMsg("Neue Marktwerte von Claude übernommen ("+extra.bewertet+" Karte"+(extra.bewertet===1?"":"n")+").");if(extra&&extra.importiert){const r=extra.importiert;showMsg("Sicherung aus der Dropbox eingespielt: "+r.neu+" neue Karte"+(r.neu===1?"":"n")+", "+r.akt+" aktualisiert.")}});
 
 async function reload(){try{cards=await Store.allCards()}catch(e){showMsg("Die Sammlung konnte nicht geladen werden. Bitte lade die Seite neu.")}render()}
 Store.onChange(reload);

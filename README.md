@@ -21,6 +21,16 @@ In der **eigenen Dropbox** jedes Nutzers. Beim ersten Start auf „Mit Dropbox v
 
 Jedes Gerät, das mit derselben Dropbox verbunden ist, zeigt dieselbe Sammlung. Wer sich mit einer anderen Dropbox anmeldet, startet leer. Änderungen werden automatisch abgeglichen; ohne Internet arbeitet die App mit einer Kopie auf dem Gerät weiter und gleicht später ab.
 
+### Automatische Marktwert-Bewertung
+
+Eine geplante Claude-Aufgabe liest jeden Sonntag um 23:59 Uhr `karten.json`, recherchiert die Preise und legt das Ergebnis als `bewertung-<Datum>.json` in den App-Ordner. Die App übernimmt die Werte beim nächsten Abgleich und löscht die Datei. Format:
+
+```json
+{"app":"Fussball-Collector","art":"bewertung","karten":{"<karten-id>":{"marktwert":13.9,"bewertetAm":"2026-11-22T23:05:00Z","bewertungHinweis":"…","marktwertQuellen":[{"quelle":"eBay.de","art":"Verkauft","titel":"…","preis":13.9,"original":"13,90 €","url":"https://…"}]}}}
+```
+
+Eine Datei `import.json` (Sicherungsformat) im App-Ordner wird beim nächsten Abgleich ebenfalls automatisch eingespielt und danach gelöscht.
+
 Über **„Sichern & Laden“** lässt sich zusätzlich eine Sicherungsdatei (`.json` mit allen Karten und Fotos) herunterladen oder einspielen sowie eine CSV-Tabelle für Excel exportieren.
 
 ### Dropbox-App einrichten (einmalig, für den Betreiber)

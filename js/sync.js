@@ -89,14 +89,45 @@ async function importFromDropbox(){
   await remove("/import.json");
   listeners.forEach(fn=>{try{fn(status,{importiert:r})}catch(e){}});
 }
+/* Bewertungsdateien "bewertung-*.json": legt die wöchentliche Claude-Bewertung im App-Ordner ab.
+   Inhalt: {app:"Fussball-Collector", art:"bewertung", karten:{<id>:{marktwert, marktwertQuellen, bewertetAm, bewertungHinweis}}} */
+async function listRoot(){
+  let r=await call(API+"/2/files/list_folder",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:""})});
+  let j=await r.json(),out=[...j.entries];
+  while(j.has_more){r=await call(API+"/2/files/list_folder/continue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cursor:j.cursor})});j=await r.json();out.push(...j.entries)}
+  return out;
+}
+async function loadValuations(){
+  const files=(await listRoot()).filter(e=>e[".tag"]==="file"&&/^bewertung[^/]*\.json$/i.test(e.name)).sort((a,b)=>a.name<b.name?-1:1);
+  const out=[];
+  for(const f of files){const d=await download(f.path_lower||("/"+f.name));if(!d)continue;
+    try{const j=JSON.parse(await d.blob.text());if(j&&j.karten&&typeof j.karten==="object")out.push({path:f.path_lower||("/"+f.name),karten:j.karten})}
+    catch(e){console.warn("Bewertungsdatei unlesbar",f.name)}}
+  return out;
+}
+function applyValuations(karten,bewertungen){
+  let n=0;const jetzt=new Date().toISOString();
+  for(const b of bewertungen)for(const [id,v] of Object.entries(b.karten)){
+    const c=karten.find(k=>k.id===id);if(!c||!v||typeof v!=="object")continue;
+    if(c.bewertetAm&&v.bewertetAm&&t(v.bewertetAm)<=t(c.bewertetAm)&&!c.bewertungAngefragt)continue;
+    if(typeof v.marktwert==="number"&&isFinite(v.marktwert)){c.marktwert=Math.round(v.marktwert*100)/100;c.marktwertQuellen=Array.isArray(v.marktwertQuellen)?v.marktwertQuellen:[]}
+    if(v.bewertetAm)c.bewertetAm=v.bewertetAm;
+    if(typeof v.bewertungHinweis==="string")c.bewertungHinweis=v.bewertungHinweis;
+    c.bewertungAngefragt=false;c.geaendert=jetzt;n++;
+  }
+  return n;
+}
 async function syncOnce(){
   await importFromDropbox();
+  let bewertungen=[];try{bewertungen=await loadValuations()}catch(e){console.warn(e)}
   for(let versuch=0;versuch<4;versuch++){
     const rem=await download("/karten.json");
     let remote={karten:[],geloescht:{}};
     if(rem){try{const j=JSON.parse(await rem.blob.text());remote={karten:Array.isArray(j.karten)?j.karten:[],geloescht:j.geloescht||{}}}catch(e){throw new Error("karten.json in der Dropbox ist beschädigt.")}}
     const local={karten:await Store.allCards(),geloescht:(await Store.getMeta("geloescht"))||{}};
     const m=merge(local.karten,local.geloescht,remote.karten,remote.geloescht);
+    m.karten=m.karten.map(c=>({...c}));
+    const bewertet=bewertungen.length?applyValuations(m.karten,bewertungen):0;
     // Fotos zuerst hochladen, damit andere Geräte sie finden, sobald die Karte erscheint
     for(const c of m.karten)for(const id of photoIds(c)){
       const r=await Store.getPhotoRecord(id);if(r&&!r.hochgeladen){
@@ -107,7 +138,10 @@ async function syncOnce(){
       try{await upload("/karten.json",new Blob([body],{type:"application/json"}),rem?{".tag":"update",update:rem.rev}:"add")}
       catch(e){if(e.status===409&&/conflict/.test(e.summary))continue;throw e} // jemand anderes war schneller: neu laden und nochmal
     }
-    if(!same(m,local))await Store.replaceAll(m.karten,m.geloescht);
+    if(!same(m,local)||bewertet)await Store.replaceAll(m.karten,m.geloescht);
+    // Eingespielte Bewertungsdateien entfernen
+    for(const b of bewertungen){try{await remove(b.path)}catch(e){console.warn(e)}}
+    if(bewertet)listeners.forEach(fn=>{try{fn(status,{bewertet})}catch(e){}});
     // Gelöschte Fotos auch in der Dropbox entfernen
     const q=(await Store.getMeta("fotosLoeschen"))||[];
     if(q.length){const still=new Set(m.karten.flatMap(photoIds));const rest=[];
