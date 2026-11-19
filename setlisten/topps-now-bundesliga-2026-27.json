@@ -1,0 +1,111 @@
+{
+ "app": "Fussball-Collector",
+ "art": "setliste",
+ "id": "topps-now-bundesliga-2026-27",
+ "name": "Topps NOW Bundesliga 2026/27",
+ "produkt": "Topps NOW Bundesliga 2026/27",
+ "teil": "Basis",
+ "saison": "2026/27",
+ "stand": "2026-11-19",
+ "laufend": true,
+ "hinweis": "Laufende Serie: Topps bringt jede Woche neue Karten heraus. Bisher recherchiert: Nr. 1 bis 15. Die Liste wird sonntags ergänzt.",
+ "quellen": [
+  {
+   "titel": "Football Cartophilic Info Exchange – Topps NOW Bundesliga 2026-27 (01)",
+   "url": "https://cartophilic-info-exch.blogspot.com/2026/08/topps-topps-now-bundesliga-2026-27-01.html"
+  },
+  {
+   "titel": "Football Cartophilic Info Exchange – Topps NOW Bundesliga 2026-27 (02)",
+   "url": "https://cartophilic-info-exch.blogspot.com/2026/09/topps-topps-now-bundesliga-2026-27-02.html"
+  }
+ ],
+ "erkennung": {
+  "begriffe": [
+   [
+    "topps now",
+    "bundesliga"
+   ]
+  ],
+  "nummernfeld": true
+ },
+ "karten": [
+  {
+   "nr": "001",
+   "spieler": "FC Bayern München (Teamkarte)",
+   "verein": "FC Bayern München",
+   "info": "Franz-Beckenbauer-Supercup 2026"
+  },
+  {
+   "nr": "002",
+   "spieler": "Nathaniel Brown",
+   "verein": "FC Bayern München",
+   "info": "Franz-Beckenbauer-Supercup 2026"
+  },
+  {
+   "nr": "003",
+   "spieler": "Michael Olise",
+   "verein": "FC Bayern München",
+   "info": "Franz-Beckenbauer-Supercup 2026"
+  },
+  {
+   "nr": "004",
+   "spieler": "Yuito Suzuki",
+   "verein": "SC Freiburg"
+  },
+  {
+   "nr": "005",
+   "spieler": "Ismael Saibari",
+   "verein": "FC Bayern München"
+  },
+  {
+   "nr": "006",
+   "spieler": "Younes Ebnoutalib",
+   "verein": "Eintracht Frankfurt"
+  },
+  {
+   "nr": "007",
+   "spieler": "Lukas Petkov",
+   "verein": "SV Elversberg"
+  },
+  {
+   "nr": "008",
+   "spieler": "Thijs Dallinga",
+   "verein": "1. FC Köln"
+  },
+  {
+   "nr": "009",
+   "spieler": "Konstantinos Karetsas",
+   "verein": "Borussia Dortmund"
+  },
+  {
+   "nr": "010",
+   "spieler": "Mohamed Alì Zoma",
+   "verein": "1. FC Nürnberg"
+  },
+  {
+   "nr": "011",
+   "spieler": "Josha Vagnoman",
+   "verein": "VfB Stuttgart"
+  },
+  {
+   "nr": "012",
+   "spieler": "Niclas Füllkrug",
+   "verein": "SV Werder Bremen"
+  },
+  {
+   "nr": "013",
+   "spieler": "Facundo Medina",
+   "verein": "Bayer 04 Leverkusen"
+  },
+  {
+   "nr": "014",
+   "spieler": "Fabian Rieder",
+   "verein": "FC Augsburg"
+  },
+  {
+   "nr": "015",
+   "spieler": "Oluwaseun Adewumi",
+   "verein": "Hertha BSC"
+  }
+ ]
+}

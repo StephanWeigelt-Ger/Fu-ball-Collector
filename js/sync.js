@@ -3,6 +3,7 @@
    "Apps/<App-Name>" (Zugriffsart "App folder"). Darin liegen:
      /karten.json        alle Karten und eine Liste gelöschter Karten
      /fotos/<id>.jpg     die Fotos
+     /setliste-*.json    Setlisten neu erkannter Sets (von der wöchentlichen Claude-Aufgabe)
    Anmeldung: OAuth 2 mit PKCE, ohne Server und ohne App-Secret. */
 (function(root){
 "use strict";
@@ -97,13 +98,27 @@ async function listRoot(){
   while(j.has_more){r=await call(API+"/2/files/list_folder/continue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cursor:j.cursor})});j=await r.json();out.push(...j.entries)}
   return out;
 }
-async function loadValuations(){
-  const files=(await listRoot()).filter(e=>e[".tag"]==="file"&&/^bewertung[^/]*\.json$/i.test(e.name)).sort((a,b)=>a.name<b.name?-1:1);
+async function loadValuations(entries){
+  const files=entries.filter(e=>e[".tag"]==="file"&&/^bewertung[^/]*\.json$/i.test(e.name)).sort((a,b)=>a.name<b.name?-1:1);
   const out=[];
   for(const f of files){const d=await download(f.path_lower||("/"+f.name));if(!d)continue;
     try{const j=JSON.parse(await d.blob.text());if(j&&j.karten&&typeof j.karten==="object")out.push({path:f.path_lower||("/"+f.name),karten:j.karten})}
     catch(e){console.warn("Bewertungsdatei unlesbar",f.name)}}
   return out;
+}
+/* Setlisten "setliste-*.json": legt die wöchentliche Claude-Aufgabe für neu erkannte Sets an (Format siehe sets.js).
+   Pro Set bleibt nur die neueste Datei im Ordner liegen, damit auch andere Geräte sie finden. */
+async function loadSetlists(entries){
+  const files=entries.filter(e=>e[".tag"]==="file"&&/^setliste[^/]*\.json$/i.test(e.name));
+  const lists=[];
+  for(const f of files){const path=f.path_lower||("/"+f.name);const d=await download(path);if(!d)continue;
+    try{const j=JSON.parse(await d.blob.text());if(j&&j.art==="setliste"&&j.id&&Array.isArray(j.karten))lists.push({path,name:f.name,j})}
+    catch(e){console.warn("Setliste unlesbar",f.name)}}
+  const neu=root.Sets?await Sets.addFromDropbox(lists.map(x=>x.j)):0;
+  // ältere Dateien desselben Sets entfernen
+  const best={};for(const x of lists){const b=best[x.j.id];if(!b||(x.j.stand||"")>(b.j.stand||"")||((x.j.stand||"")===(b.j.stand||"")&&x.name>b.name))best[x.j.id]=x}
+  for(const x of lists)if(best[x.j.id]!==x){try{await remove(x.path)}catch(e){console.warn(e)}}
+  return neu;
 }
 function applyValuations(karten,bewertungen){
   let n=0;const jetzt=new Date().toISOString();
@@ -119,7 +134,9 @@ function applyValuations(karten,bewertungen){
 }
 async function syncOnce(){
   await importFromDropbox();
-  let bewertungen=[];try{bewertungen=await loadValuations()}catch(e){console.warn(e)}
+  let eintraege=[];try{eintraege=await listRoot()}catch(e){console.warn(e)}
+  let bewertungen=[];try{bewertungen=await loadValuations(eintraege)}catch(e){console.warn(e)}
+  try{const n=await loadSetlists(eintraege);if(n)listeners.forEach(fn=>{try{fn(status,{setlisten:n})}catch(e){}})}catch(e){console.warn(e)}
   for(let versuch=0;versuch<4;versuch++){
     const rem=await download("/karten.json");
     let remote={karten:[],geloescht:{}};

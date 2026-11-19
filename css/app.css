@@ -165,3 +165,19 @@ img{max-width:100%}
 .codebox ol{padding-left:18px}
 .codebox input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);flex:1 1 180px;min-width:0}
 @media (max-width:480px){#cloudText{display:none}}
+
+/* Setlisten */
+.setbox{border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;scroll-margin-top:12px}
+.setbox h3{font-family:var(--f-display);font-size:1.35rem;margin:0;line-height:1.1}
+.progress{height:10px;border-radius:99px;background:var(--chip);overflow:hidden}
+.progress span{display:block;height:100%;background:var(--up);border-radius:99px}
+.setsum{font-variant-numeric:tabular-nums}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg .btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+table.setlist{min-width:0}
+table.setlist tbody tr{cursor:default}
+table.setlist tr.have td{background:color-mix(in srgb,var(--up) 9%,transparent)}
+.chip.have{background:transparent;border:1px solid var(--up);color:var(--up);cursor:pointer;font:600 .75rem var(--f-body)}
+.chip.miss{background:transparent;border:1px dashed var(--down);color:var(--down)}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-align:left;text-decoration:underline}
+ul.plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}

@@ -1,0 +1,255 @@
+{
+ "app": "Fussball-Collector",
+ "art": "setliste",
+ "id": "topps-tier-one-bundesliga-2022-23-magic-skills-relics",
+ "name": "Topps Tier One Bundesliga 2022/23 – Magic Skills Relics",
+ "produkt": "Topps Tier One Bundesliga 2022/23",
+ "teil": "Magic Skills Relics (Insert)",
+ "saison": "2022/23",
+ "stand": "2026-11-19",
+ "laufend": false,
+ "hinweis": "44 Karten, Patch-Karten nummeriert /144. Parallelen: Dual Patch /25, Triple Patch 1/1.",
+ "quellen": [
+  {
+   "titel": "Cardboard Connection – 2022-23 Topps Tier One Bundesliga",
+   "url": "https://www.cardboardconnection.com/2022-23-topps-tier-one-bundesliga-cards"
+  },
+  {
+   "titel": "Checklist Center – 2022-23 Topps Tier One Bundesliga",
+   "url": "https://www.checklistcenter.com/2022-23-topps-tier-one-bundesliga-soccer-card-checklist/"
+  }
+ ],
+ "erkennung": {
+  "begriffe": [
+   [
+    "tier one",
+    "magic skills"
+   ]
+  ],
+  "praefix": [
+   "MSR"
+  ]
+ },
+ "karten": [
+  {
+   "nr": "MSR-ACA",
+   "spieler": "Anthony Caci",
+   "verein": "1. FSV Mainz 05"
+  },
+  {
+   "nr": "MSR-AH",
+   "spieler": "Adam Hložek",
+   "verein": "Bayer 04 Leverkusen"
+  },
+  {
+   "nr": "MSR-AK",
+   "spieler": "Ansgar Knauff",
+   "verein": "Eintracht Frankfurt"
+  },
+  {
+   "nr": "MSR-AL",
+   "spieler": "Anthony Losilla",
+   "verein": "VfL Bochum 1848"
+  },
+  {
+   "nr": "MSR-CB",
+   "spieler": "Christoph Baumgartner",
+   "verein": "TSG 1899 Hoffenheim"
+  },
+  {
+   "nr": "MSR-CE",
+   "spieler": "Chidera Ejuke",
+   "verein": "Hertha BSC"
+  },
+  {
+   "nr": "MSR-CHO",
+   "spieler": "Callum Hudson-Odoi",
+   "verein": "Bayer 04 Leverkusen"
+  },
+  {
+   "nr": "MSR-CN",
+   "spieler": "Christopher Nkunku",
+   "verein": "RB Leipzig"
+  },
+  {
+   "nr": "MSR-DS",
+   "spieler": "Dominik Szoboszlai",
+   "verein": "RB Leipzig"
+  },
+  {
+   "nr": "MSR-ED",
+   "spieler": "Ermedin Demirovic",
+   "verein": "FC Augsburg"
+  },
+  {
+   "nr": "MSR-FN",
+   "spieler": "Florian Neuhaus",
+   "verein": "Borussia Mönchengladbach"
+  },
+  {
+   "nr": "MSR-FW",
+   "spieler": "Florian Wirtz",
+   "verein": "Bayer 04 Leverkusen"
+  },
+  {
+   "nr": "MSR-GR",
+   "spieler": "Georginio Rutter",
+   "verein": "TSG 1899 Hoffenheim"
+  },
+  {
+   "nr": "MSR-JBE",
+   "spieler": "Jude Bellingham",
+   "verein": "Borussia Dortmund"
+  },
+  {
+   "nr": "MSR-JBG",
+   "spieler": "Jamie Bynoe-Gittens",
+   "verein": "Borussia Dortmund"
+  },
+  {
+   "nr": "MSR-JK",
+   "spieler": "Jakub Kamiński",
+   "verein": "VfL Wolfsburg"
+  },
+  {
+   "nr": "MSR-JM",
+   "spieler": "Jamal Musiala",
+   "verein": "FC Bayern München"
+  },
+  {
+   "nr": "MSR-LBI",
+   "spieler": "Leonardo Bittencourt",
+   "verein": "SV Werder Bremen"
+  },
+  {
+   "nr": "MSR-LBU",
+   "spieler": "Lee Buchanan",
+   "verein": "SV Werder Bremen"
+  },
+  {
+   "nr": "MSR-LJS",
+   "spieler": "Jae-Sung Lee",
+   "verein": "1. FSV Mainz 05"
+  },
+  {
+   "nr": "MSR-LMA",
+   "spieler": "Linton Maina",
+   "verein": "1. FC Köln"
+  },
+  {
+   "nr": "MSR-LT",
+   "spieler": "Lucas Tousart",
+   "verein": "Hertha BSC"
+  },
+  {
+   "nr": "MSR-LU",
+   "spieler": "Laurin Ulrich",
+   "verein": "VfB Stuttgart"
+  },
+  {
+   "nr": "MSR-MA",
+   "spieler": "Maximilian Arnold",
+   "verein": "VfL Wolfsburg"
+  },
+  {
+   "nr": "MSR-MD",
+   "spieler": "Moussa Diaby",
+   "verein": "Bayer 04 Leverkusen"
+  },
+  {
+   "nr": "MSR-MGO",
+   "spieler": "Mario Götze",
+   "verein": "Eintracht Frankfurt"
+  },
+  {
+   "nr": "MSR-MT",
+   "spieler": "Marcus Thuram",
+   "verein": "Borussia Mönchengladbach"
+  },
+  {
+   "nr": "MSR-MTH",
+   "spieler": "Morten Thorsby",
+   "verein": "1. FC Union Berlin"
+  },
+  {
+   "nr": "MSR-MV",
+   "spieler": "Micky van de Ven",
+   "verein": "VfL Wolfsburg"
+  },
+  {
+   "nr": "MSR-MY",
+   "spieler": "Maya Yoshida",
+   "verein": "FC Schalke 04"
+  },
+  {
+   "nr": "MSR-NS",
+   "spieler": "Niklas Süle",
+   "verein": "Borussia Dortmund"
+  },
+  {
+   "nr": "MSR-NWE",
+   "spieler": "Nelson Weiper",
+   "verein": "1. FSV Mainz 05"
+  },
+  {
+   "nr": "MSR-OM",
+   "spieler": "Omar Marmoush",
+   "verein": "VfL Wolfsburg"
+  },
+  {
+   "nr": "MSR-PWA",
+   "spieler": "Paul Wanner",
+   "verein": "FC Bayern München"
+  },
+  {
+   "nr": "MSR-PWI",
+   "spieler": "Patrick Wimmer",
+   "verein": "VfL Wolfsburg"
+  },
+  {
+   "nr": "MSR-RB",
+   "spieler": "Ramy Bensebaini",
+   "verein": "Borussia Mönchengladbach"
+  },
+  {
+   "nr": "MSR-SB",
+   "spieler": "Sheraldo Becker",
+   "verein": "1. FC Union Berlin"
+  },
+  {
+   "nr": "MSR-SKM",
+   "spieler": "Silas Katompa Mvumpa",
+   "verein": "VfB Stuttgart"
+  },
+  {
+   "nr": "MSR-SZ",
+   "spieler": "Simon Zoller",
+   "verein": "VfL Bochum 1848"
+  },
+  {
+   "nr": "MSR-TBI",
+   "spieler": "Tom Bischof",
+   "verein": "TSG 1899 Hoffenheim"
+  },
+  {
+   "nr": "MSR-TT",
+   "spieler": "Tiago Tomás",
+   "verein": "VfB Stuttgart"
+  },
+  {
+   "nr": "MSR-TW",
+   "spieler": "Timo Werner",
+   "verein": "RB Leipzig"
+  },
+  {
+   "nr": "MSR-VG",
+   "spieler": "Vincenzo Grifo",
+   "verein": "SC Freiburg"
+  },
+  {
+   "nr": "MSR-WJ",
+   "spieler": "Wooyeong Jeong",
+   "verein": "SC Freiburg"
+  }
+ ]
+}

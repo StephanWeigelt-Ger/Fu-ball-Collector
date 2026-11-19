@@ -30,6 +30,7 @@
     </div>
     <div class="actions">
       <button class="btn cloud" id="btnCloud" type="button"><span class="dot" id="cloudDot"></span><span id="cloudText">Dropbox</span></button>
+      <button class="btn" id="btnSets" type="button">Setlisten</button>
       <button class="btn" id="btnMenu">Sichern &amp; Laden</button>
       <button class="btn primary" id="btnAdd">+ Karte hinzufügen</button>
     </div>
@@ -83,6 +84,11 @@
   <div class="panel wide" id="detail" role="dialog" aria-modal="true" aria-labelledby="dName"></div>
 </div>
 
+<!-- Setlisten -->
+<div class="sheet" id="setSheet" hidden>
+  <div class="panel wide" id="setPanel" role="dialog" aria-modal="true" aria-labelledby="setTitle"></div>
+</div>
+
 <!-- Formular -->
 <div class="sheet" id="formSheet" hidden>
   <form class="panel" id="form" novalidate>
@@ -134,6 +140,7 @@
       <label class="f">Nummerierung<input id="iNummer" autocomplete="off" placeholder="z. B. 17/99 oder 1/1"><span class="hint">Bei „1/1“ wird One-of-One automatisch markiert.</span></label>
       <label class="f">Grading<input id="iGrading" autocomplete="off" placeholder="z. B. PSA 10"></label>
     </div>
+    <label class="f">Kartennummer im Set<input id="iSetNr" autocomplete="off" placeholder="z. B. MSR-CHO oder 13"><span class="hint">Die Nummer auf der Kartenrückseite. Damit wird die Karte in der Setliste sicher abgehakt. Leer lassen: die App sucht selbst über Serie und Spieler.</span></label>
     <fieldset>
       <legend>Besonderheiten</legend>
       <div class="checks" id="checks"></div>
@@ -212,6 +219,7 @@
 <script src="js/cardproc.js"></script>
 <script src="js/config.js"></script>
 <script src="js/store.js"></script>
+<script src="js/sets.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/app.js"></script>
 </body>
