@@ -1,11 +1,11 @@
 /* Fußball-Collector – App-Logik. Daten: siehe store.js (lokal auf dem Gerät). */
-const APP_VERSION="1.3.0";
+const APP_VERSION="1.4.0";
 const TYPES=["Rookie","Nummeriert","One-of-One","Autogramm","Patch / Trikot","Parallel / Refractor","Insert","Short Print","Graded"];
 const GOLD=new Set(["One-of-One","Autogramm","Patch / Trikot"]);
 const $=id=>document.getElementById(id);
 const eur=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
 const dfmt=new Intl.DateTimeFormat("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
-let cards=[], editing=null, detailId=null, photo={front:null,back:null}, pending={front:null,back:null};
+let cards=[], setInfo={sets:[],ohneSet:[]}, editing=null, detailId=null, photo={front:null,back:null}, pending={front:null,back:null};
 const SIDE={front:"Front",back:"Back"};
 
 TYPES.forEach(t=>{
@@ -26,6 +26,11 @@ function signed(n){return (n>0?"+":n<0?"−":"±")+eur.format(Math.abs(n))}
 function diffEl(c,tag){if(!hasValue(c)||c.preis==null)return null;const d=c.marktwert-c.preis;return el(tag||"div","mvsub "+(d>0?"pos":d<0?"neg":""),signed(d)+" zum Ankauf")}
 
 function render(){
+  try{setInfo=Sets.analyse(cards)}catch(e){console.error(e);setInfo={sets:[],ohneSet:[]}}
+  const fe=setInfo.sets.reduce((n,x)=>n+x.fehlend,0);
+  $("btnSets").textContent=setInfo.sets.length?"Setlisten ("+setInfo.sets.length+")":"Setlisten";
+  $("btnSets").title=setInfo.sets.length?fe+" Karten fehlen in deinen Sets":"";
+  if(!$("setSheet").hidden)renderSets();
   const q=$("q").value.trim().toLowerCase(), club=$("fClub").value, typ=$("fType").value, sort=$("sort").value;
   const clubs=[...new Set(cards.map(c=>c.verein).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"de"));
   const cur=$("fClub").value;$("fClub").length=1;$("clubList").textContent="";
@@ -131,6 +136,11 @@ function renderDetail(c){
   fact(dl,"Hersteller / Serie",c.serie);fact(dl,"Jahr / Saison",c.saison);
   if(c.nummer){fact(dl,"Nummerierung",el("span","serial","# "+c.nummer))}
   fact(dl,"Grading",c.grading);
+  const si=Sets.forCard(c,setInfo);
+  if(si){const w=el("div");const a=el("button","linkbtn",si.s.set.name);a.type="button";a.onclick=()=>{closeDetail();openSets(si.s.set.id)};w.append(a);
+    w.append(el("div","club",si.e?"Nr. "+si.e.k.nr+" · "+si.s.vorhanden+" von "+si.s.eintraege.length+" Karten vorhanden, "+si.s.fehlend+" fehlen":"Kartennummer im Set nicht erkannt. Trage sie unter „Ändern“ ein."));fact(dl,"Set",w)}
+  else fact(dl,"Set",el("span","club","Noch keine Setliste vorhanden. Claude sucht sie beim nächsten Sonntagslauf."));
+  fact(dl,"Nr. im Set",c.setNr);
   const tags=tagsOf(c);if(tags.length){const ch=el("div","chips");tags.forEach(t=>ch.append(el("span","chip"+(GOLD.has(t)?" gold":""),t)));fact(dl,"Besonderheiten",ch)}
   fact(dl,"Ankaufspreis",c.preis!=null?eur.format(c.preis):"—");fact(dl,"Kaufjahr",c.kaufjahr?String(c.kaufjahr):"—");
   fact(dl,"Lagerort",c.lagerort||"—");fact(dl,"Hinweise",c.notiz);
@@ -155,7 +165,7 @@ function money(n){return n!=null&&isFinite(n)?String(n).replace(".",","):""}
 function openForm(c){
   editing=c||null;$("formTitle").textContent=c?"Karte ändern":"Karte hinzufügen";$("btnSave").textContent=c?"Änderungen speichern":"Speichern";
   $("iSpieler").value=c?.spieler||"";$("iVerein").value=c?.verein||"";$("iSerie").value=c?.serie||"";$("iSaison").value=c?.saison||"";
-  $("iNummer").value=c?.nummer||"";$("iGrading").value=c?.grading||"";$("iPreis").value=money(c?.preis);
+  $("iNummer").value=c?.nummer||"";$("iGrading").value=c?.grading||"";$("iSetNr").value=c?.setNr||"";$("iPreis").value=money(c?.preis);
   $("iWert").value=hasValue(c||{})?money(c.marktwert):"";$("iWertHinweis").value=c?.bewertungHinweis||"";
   $("iKaufjahr").value=c?.kaufjahr||"";$("iNotiz").value=c?.notiz||"";$("iLager").value=c?.lagerort||"";
   document.querySelectorAll("#checks input").forEach(x=>x.checked=!!c?.besonderheiten?.includes(x.value));
@@ -250,7 +260,7 @@ $("form").addEventListener("submit",async e=>{
     }
     const besonderheiten=[...document.querySelectorAll("#checks input:checked")].map(x=>x.value);
     const data={spieler,verein:$("iVerein").value.trim(),serie:$("iSerie").value.trim(),saison:$("iSaison").value.trim(),
-      nummer:$("iNummer").value.trim(),grading:$("iGrading").value.trim(),besonderheiten,preis,kaufjahr:kj?Number(kj):null,
+      nummer:$("iNummer").value.trim(),grading:$("iGrading").value.trim(),setNr:$("iSetNr").value.trim(),besonderheiten,preis,kaufjahr:kj?Number(kj):null,
       notiz:$("iNotiz").value.trim(),lagerort:$("iLager").value.trim(),fotoVorne:photo.front,fotoHinten:photo.back,
       bewertungHinweis:$("iWertHinweis").value.trim()};
     if("front" in origIds)data.fotoVorneOriginal=origIds.front;if("back" in origIds)data.fotoHintenOriginal=origIds.back;
@@ -279,6 +289,51 @@ $("btnDelYes").onclick=async()=>{
 $("btnAdd").onclick=()=>openForm(null);
 $("btnClose").onclick=closeForm;
 $("formSheet").addEventListener("click",e=>{if(e.target===$("formSheet"))closeForm()});
+
+/* Setlisten */
+let setFilter="alle", setOpen=null;
+function openSets(id){setOpen=id||setOpen;renderSets();$("setSheet").hidden=false;setTimeout(()=>{const t=id&&document.getElementById("set-"+id);if(t)t.scrollIntoView({block:"start"});else $("btnSetsClose")?.focus()},50)}
+function closeSets(){$("setSheet").hidden=true}
+function missingText(x){return x.set.name+" – fehlende Karten ("+x.fehlend+"):\n"+x.eintraege.filter(e=>!e.karten.length).map(e=>e.k.nr+"  "+e.k.spieler+(e.k.verein?" ("+e.k.verein+")":"")).join("\n")}
+function renderSets(){
+  const p=$("setPanel");const keep=p.scrollTop;p.textContent="";
+  const top=el("div","topbar");const back=el("button","btn back","← Zurück");back.type="button";back.id="btnSetsClose";back.onclick=closeSets;
+  const h=el("h2",null,"Setlisten");h.id="setTitle";h.style.fontSize="1.4rem";top.append(back,h);p.append(top);
+  p.append(el("p","hint","Die App erkennt bei jeder Karte automatisch das Set (über Serie, Saison und Kartennummer) und hakt sie in der Setliste ab. Für neue Sets sucht Claude die Setliste jeden Sonntag um 23:59 Uhr und legt sie in deine Dropbox."));
+  const seg=el("div","seg");[["alle","Alle Karten"],["fehlend","Nur fehlende"],["vorhanden","Nur vorhandene"]].forEach(([v,t])=>{const b=el("button","btn small"+(setFilter===v?" on":""),t);b.type="button";b.setAttribute("aria-pressed",setFilter===v);b.onclick=()=>{setFilter=v;renderSets()};seg.append(b)});
+  if(setInfo.sets.length)p.append(seg);
+  if(!setInfo.sets.length)p.append(el("div","notice",cards.length?"Für deine Karten ist noch keine Setliste vorhanden.":"Noch keine Karten erfasst."));
+  setInfo.sets.forEach(x=>{
+    const s=x.set,box=el("section","setbox");box.id="set-"+s.id;
+    box.append(el("h3",null,s.name));
+    const meta=[s.saison?"Saison "+s.saison:"",s.teil||"",x.eintraege.length+" Karten",s.laufend?"laufende Serie":"",s.stand?"Stand "+fdate(s.stand):""].filter(Boolean).join(" · ");
+    box.append(el("div","club",meta));
+    const pr=el("div","progress");const bar=el("span");bar.style.width=(x.eintraege.length?Math.round(100*x.vorhanden/x.eintraege.length):0)+"%";pr.append(bar);box.append(pr);
+    const sum=el("div","setsum");sum.append(el("b","pos",x.vorhanden+" vorhanden"),document.createTextNode(" · "),el("b","neg",x.fehlend+" fehlen"),document.createTextNode(" · "+(x.eintraege.length?Math.round(100*x.vorhanden/x.eintraege.length):0)+" % komplett"));box.append(sum);
+    if(s.hinweis)box.append(el("div","hint",s.hinweis));
+    if(x.ohneNr.length){const n=el("div","qbox warn");n.append(el("strong",null,"Zu diesem Set gehören, aber nicht abgehakt: "));n.append(document.createTextNode(x.ohneNr.map(c=>c.spieler).join(", ")+". Bitte bei der Karte die „Kartennummer im Set“ eintragen."));box.append(n)}
+    const tw=el("div","srcbox");const t=el("table","src setlist");const thd=el("thead");const hr=el("tr");["Nr.","Spieler","Verein","Status"].forEach(z=>hr.append(el("th",null,z)));thd.append(hr);t.append(thd);
+    const tb=el("tbody");
+    x.eintraege.filter(e=>setFilter==="alle"||(setFilter==="fehlend"?!e.karten.length:e.karten.length)).forEach(e=>{
+      const r=el("tr",e.karten.length?"have":"miss");r.append(el("td","serial",e.k.nr));
+      const ts=el("td");ts.append(el("div",null,e.k.spieler));if(e.k.info)ts.append(el("div","mvsub",e.k.info));r.append(ts);r.append(el("td","club",e.k.verein||""));
+      const st=el("td");if(e.karten.length){const b=el("button","chip have","✓ vorhanden"+(e.karten.length>1?" ("+e.karten.length+"×)":""));b.type="button";b.title="Karte ansehen";b.onclick=()=>{closeSets();openDetail(e.karten[0].id)};st.append(b)}else st.append(el("span","chip miss","fehlt"));
+      r.append(st);tb.append(r)});
+    t.append(tb);tw.append(t);box.append(tw);
+    const act=el("div","actions");
+    if(x.fehlend){const cp=el("button","btn small","Fehlliste kopieren");cp.type="button";cp.onclick=async()=>{try{await navigator.clipboard.writeText(missingText(x));cp.textContent="Kopiert ✓"}catch(e){cp.textContent="Kopieren nicht möglich"}setTimeout(()=>cp.textContent="Fehlliste kopieren",2000)};
+      const cv=el("button","btn small","Fehlliste als CSV");cv.type="button";cv.onclick=()=>{const lines=["Nr.;Spieler;Verein;Info"].concat(x.eintraege.filter(e=>!e.karten.length).map(e=>[e.k.nr,e.k.spieler,e.k.verein,e.k.info].map(csvCell).join(";")));
+        saveFile("fehlliste-"+s.id+".csv",new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv"}))};act.append(cp,cv)}
+    (s.quellen||[]).forEach(q=>{if(q.url&&/^https:\/\//.test(q.url)){const a=el("a","hint","Quelle: "+(q.titel||q.url));a.href=q.url;a.target="_blank";a.rel="noopener";act.append(a)}});
+    box.append(act);p.append(box);
+  });
+  if(setInfo.ohneSet.length){const box=el("section","setbox");box.append(el("h3",null,"Karten ohne Setliste ("+setInfo.ohneSet.length+")"));
+    box.append(el("p","hint",Sync.connected()?"Claude sucht die Setlisten für diese Karten beim nächsten Sonntagslauf (23:59 Uhr). Je genauer „Hersteller / Serie“ und „Saison“ ausgefüllt sind, desto sicherer klappt es.":"Verbinde die App mit Dropbox, dann sucht Claude die Setlisten jeden Sonntag automatisch."));
+    const ul=el("ul","plain");setInfo.ohneSet.forEach(c=>{const li=el("li");const b=el("button","linkbtn",c.spieler);b.type="button";b.onclick=()=>{closeSets();openDetail(c.id)};li.append(b,document.createTextNode(" – "+[c.serie,c.saison].filter(Boolean).join(", ")));ul.append(li)});box.append(ul);p.append(box)}
+  p.scrollTop=keep;
+}
+$("btnSets").onclick=()=>openSets();
+$("setSheet").addEventListener("click",e=>{if(e.target===$("setSheet"))closeSets()});
 
 /* Sichern & Laden */
 function menuMsg(t){$("menuMsg").textContent=t;$("menuMsg").hidden=!t}
@@ -312,12 +367,12 @@ $("fileImport").addEventListener("change",async e=>{
 function csvCell(v){v=v==null?"":String(v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function num(n){return typeof n==="number"?n.toFixed(2).replace(".",","):""}
 $("btnCsv").onclick=()=>{
-  const head=["Spieler","Verein","Hersteller/Serie","Jahr/Saison","Nummerierung","Grading","Besonderheiten","Ankaufspreis EUR","Marktwert EUR","Bewertet am","Kaufjahr","Lagerort","Hinweise"];
-  const lines=[head.join(";")].concat(cards.map(c=>[c.spieler,c.verein,c.serie,c.saison,c.nummer,c.grading,tagsOf(c).join(", "),num(c.preis),hasValue(c)?num(c.marktwert):"",fdate(c.bewertetAm),c.kaufjahr,c.lagerort,c.notiz].map(csvCell).join(";")));
+  const head=["Spieler","Verein","Hersteller/Serie","Jahr/Saison","Nummerierung","Grading","Nr. im Set","Besonderheiten","Ankaufspreis EUR","Marktwert EUR","Bewertet am","Kaufjahr","Lagerort","Hinweise"];
+  const lines=[head.join(";")].concat(cards.map(c=>[c.spieler,c.verein,c.serie,c.saison,c.nummer,c.grading,c.setNr,tagsOf(c).join(", "),num(c.preis),hasValue(c)?num(c.marktwert):"",fdate(c.bewertetAm),c.kaufjahr,c.lagerort,c.notiz].map(csvCell).join(";")));
   saveFile("fussballkarten.csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("lightbox").hidden)$("lightbox").hidden=true;else if(!$("menuSheet").hidden)closeMenu();else if(!$("formSheet").hidden)closeForm();else if(!$("detailSheet").hidden)closeDetail()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("lightbox").hidden)$("lightbox").hidden=true;else if(!$("setSheet").hidden)closeSets();else if(!$("menuSheet").hidden)closeMenu();else if(!$("formSheet").hidden)closeForm();else if(!$("detailSheet").hidden)closeDetail()}});
 ["q","fClub","fType","fLager","sort"].forEach(id=>$(id).addEventListener("input",render));
 
 /* Dropbox */
@@ -340,13 +395,14 @@ $("btnDisconnect").onclick=async()=>{await Sync.disconnect();renderCloud();menuM
 $("lnkCode").onclick=async e=>{e.preventDefault();const w=window.open("about:blank","_blank");try{const u=await Sync.codeUrl();if(w)w.location.href=u;else location.href=u}catch(err){if(w)w.close();menuMsg(err.message)}};
 $("btnCode").onclick=async()=>{const c=$("iCode").value;if(!c.trim())return;menuMsg("Wird angemeldet …");
   try{await Sync.finishWithCode(c);$("iCode").value="";menuMsg("Mit Dropbox verbunden.");renderCloud();Sync.sync()}catch(e){menuMsg("Anmeldung fehlgeschlagen: "+e.message)}};
-Sync.onStatus((st,extra)=>{renderCloud();if(extra&&extra.bewertet)showMsg("Neue Marktwerte von Claude übernommen ("+extra.bewertet+" Karte"+(extra.bewertet===1?"":"n")+").");if(extra&&extra.importiert){const r=extra.importiert;showMsg("Sicherung aus der Dropbox eingespielt: "+r.neu+" neue Karte"+(r.neu===1?"":"n")+", "+r.akt+" aktualisiert.")}});
+Sync.onStatus((st,extra)=>{renderCloud();if(extra&&extra.setlisten){showMsg("Neue Setlisten von Claude übernommen ("+extra.setlisten+").");Sets.load().then(render)}if(extra&&extra.bewertet)showMsg("Neue Marktwerte von Claude übernommen ("+extra.bewertet+" Karte"+(extra.bewertet===1?"":"n")+").");if(extra&&extra.importiert){const r=extra.importiert;showMsg("Sicherung aus der Dropbox eingespielt: "+r.neu+" neue Karte"+(r.neu===1?"":"n")+", "+r.akt+" aktualisiert.")}});
 
 async function reload(){try{cards=await Store.allCards()}catch(e){showMsg("Die Sammlung konnte nicht geladen werden. Bitte lade die Seite neu.")}render()}
 Store.onChange(reload);
 
 (async()=>{
   if(!window.indexedDB){showMsg("Dieser Browser kann keine Daten speichern. Bitte nutze Safari, Chrome oder Edge und keinen privaten Modus.");render();return}
+  await Sets.load();
   await reload();
   try{const r=await Sync.init();if(r==="ok")showMsg("Mit Dropbox verbunden. Deine Karten werden jetzt dort gespeichert.");else if(r)showMsg(r)}catch(e){console.error(e)}
   renderCloud();

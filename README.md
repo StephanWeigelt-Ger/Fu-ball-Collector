@@ -29,6 +29,25 @@ Eine geplante Claude-Aufgabe liest jeden Sonntag um 23:59 Uhr `karten.json`, rec
 {"app":"Fussball-Collector","art":"bewertung","karten":{"<karten-id>":{"marktwert":13.9,"bewertetAm":"2026-11-22T23:05:00Z","bewertungHinweis":"…","marktwertQuellen":[{"quelle":"eBay.de","art":"Verkauft","titel":"…","preis":13.9,"original":"13,90 €","url":"https://…"}]}}}
 ```
 
+### Setlisten (Checklisten)
+
+Über **„Setlisten“** zeigt die App für jedes erkannte Set die komplette Checkliste: vorhandene Karten sind abgehakt, fehlende markiert (Filter „Nur fehlende“, Fehlliste kopieren oder als CSV). Die App ordnet jede Karte automatisch über *Hersteller / Serie*, *Saison* und die Kartennummer (Feld „Kartennummer im Set“, sonst Nummer aus der Serie wie `MSR-CHO` oder `#013`, zuletzt der Spielername) einem Set zu.
+
+Setlisten kommen aus zwei Quellen:
+- `setlisten/*.json` in diesem Repo (in `setlisten/index.json` eingetragen),
+- `setliste-*.json` im Dropbox-App-Ordner: Die Sonntagsaufgabe recherchiert Setlisten für Karten, die noch keinem Set zugeordnet sind, und ergänzt laufende Serien (z. B. Topps NOW). Pro Set gilt die Datei mit dem neuesten `stand`; ältere löscht die App.
+
+Format (Ausschnitt):
+
+```json
+{"app":"Fussball-Collector","art":"setliste","id":"topps-now-bundesliga-2026-27","name":"Topps NOW Bundesliga 2026/27","saison":"2026/27","stand":"2026-11-19","laufend":true,
+ "erkennung":{"begriffe":[["topps now","bundesliga"]],"praefix":[]},
+ "quellen":[{"titel":"…","url":"https://…"}],
+ "karten":[{"nr":"013","spieler":"Facundo Medina","verein":"Bayer 04 Leverkusen","info":"…"}]}
+```
+
+`erkennung.begriffe`: Eine Karte gehört zum Set, wenn alle Begriffe einer Gruppe in ihrer Serie vorkommen und die Saison passt.
+
 Eine Datei `import.json` (Sicherungsformat) im App-Ordner wird beim nächsten Abgleich ebenfalls automatisch eingespielt und danach gelöscht.
 
 Über **„Sichern & Laden“** lässt sich zusätzlich eine Sicherungsdatei (`.json` mit allen Karten und Fotos) herunterladen oder einspielen sowie eine CSV-Tabelle für Excel exportieren.
@@ -53,6 +72,8 @@ Keine Abhängigkeiten, kein Build-Schritt. Einfach die Dateien auf einen Webserv
 | `js/config.js` | Einstellungen, u. a. Dropbox-App-Schlüssel |
 | `js/store.js` | Lokale Kopie der Daten (IndexedDB) und Sicherungsformat |
 | `js/sync.js` | Dropbox-Anmeldung und Abgleich |
+| `js/sets.js` | Set-Erkennung und Abgleich mit den Setlisten |
+| `setlisten/` | Mitgelieferte Setlisten (Checklisten) |
 | `js/cardproc.js` | Fotobearbeitung: Karte erkennen, entzerren, Licht korrigieren |
 | `sw.js` | Service Worker für Offline-Betrieb |
 | `manifest.webmanifest`, `icons/` | App-Name und Logo für die Installation |
