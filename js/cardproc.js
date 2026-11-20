@@ -155,15 +155,197 @@ function sharpen(img,amount){ // leichte Unschärfemaske, Details bleiben erhalt
     const bl=(src[i+c-4]+src[i+c+4]+src[i+c-w*4]+src[i+c+w*4]+4*src[i+c])/8;d[i+c]=src[i+c]+(src[i+c]-bl)*amount}}
 }
 
+
+/* ---------- Mehrere Karten auf einem Foto ----------
+   Ablauf: Hintergrundfarbe am Bildrand schätzen, alles was sich davon abhebt oder von Kanten
+   umschlossen ist als Vordergrund markieren, in zusammenhängende Flächen zerlegen, jede Fläche
+   durch das kleinste umschließende Rechteck annähern und dieses mit detectQuad im Ausschnitt verfeinern. */
+function downscaleRGB(img,maxSide){
+  const k=Math.min(1,maxSide/Math.max(img.width,img.height));
+  const w=Math.max(1,Math.round(img.width*k)),h=Math.max(1,Math.round(img.height*k));
+  const R=new Float32Array(w*h),G=new Float32Array(w*h),B=new Float32Array(w*h),sx=img.width/w,sy=img.height/h,d=img.data;
+  for(let y=0;y<h;y++){const y0=Math.floor(y*sy),y1=Math.max(y0+1,Math.floor((y+1)*sy));
+    for(let x=0;x<w;x++){const x0=Math.floor(x*sx),x1=Math.max(x0+1,Math.floor((x+1)*sx));let r=0,g=0,b=0,n=0;
+      for(let yy=y0;yy<y1;yy++)for(let xx=x0;xx<x1;xx++){const i=(yy*img.width+xx)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++}
+      const o=y*w+x;R[o]=r/n;G[o]=g/n;B[o]=b/n}}
+  return {R,G,B,w,h,k:w/img.width};
+}
+function median(a){const s=Array.from(a).sort((x,y)=>x-y);return s.length?s[s.length>>1]:0}
+function morph(m,w,h,r,grow){ // quadratisches Strukturelement, separabel
+  const t=new Uint8Array(w*h),o=new Uint8Array(w*h),hit=grow?1:0;
+  for(let y=0;y<h;y++){let run=0;const row=y*w;
+    for(let x=0;x<w;x++){let v=grow?0:1;for(let j=-r;j<=r;j++){const xx=x+j;const q=(xx<0||xx>=w)?(grow?0:1):m[row+xx];if(q===hit){v=hit;break}}t[row+x]=v}}
+  for(let x=0;x<w;x++)for(let y=0;y<h;y++){let v=grow?0:1;for(let j=-r;j<=r;j++){const yy=y+j;const q=(yy<0||yy>=h)?(grow?0:1):t[yy*w+x];if(q===hit){v=hit;break}}o[y*w+x]=v}
+  return o;
+}
+function hull(pts){pts.sort((a,b)=>a.x-b.x||a.y-b.y);const cr=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);const lo=[],up=[];
+  for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}
+  for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}
+  lo.pop();up.pop();return lo.concat(up)}
+function minRect(h){ // kleinstes umschließendes Rechteck über die Hüllkanten
+  let best=null;for(let i=0;i<h.length;i++){const a=h[i],b=h[(i+1)%h.length];const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<1e-9)continue;
+    const ux=(b.x-a.x)/L,uy=(b.y-a.y)/L;let mn1=1e18,mx1=-1e18,mn2=1e18,mx2=-1e18;
+    for(const p of h){const s=p.x*ux+p.y*uy,t=-p.x*uy+p.y*ux;if(s<mn1)mn1=s;if(s>mx1)mx1=s;if(t<mn2)mn2=t;if(t>mx2)mx2=t}
+    const A=(mx1-mn1)*(mx2-mn2);if(!best||A<best.A)best={A,ux,uy,mn1,mx1,mn2,mx2}}
+  if(!best)return null;const {ux,uy,mn1,mx1,mn2,mx2}=best;const P=(s,t)=>({x:s*ux-t*uy,y:s*uy+t*ux});
+  return {q:[P(mn1,mn2),P(mx1,mn2),P(mx1,mx2),P(mn1,mx2)],a:mx1-mn1,b:mx2-mn2,area:best.A};
+}
+function crop(img,x0,y0,x1,y1){x0=Math.max(0,Math.floor(x0));y0=Math.max(0,Math.floor(y0));x1=Math.min(img.width,Math.ceil(x1));y1=Math.min(img.height,Math.ceil(y1));
+  const w=x1-x0,h=y1-y0,out=new Uint8ClampedArray(w*h*4);for(let y=0;y<h;y++)out.set(img.data.subarray(((y0+y)*img.width+x0)*4,((y0+y)*img.width+x1)*4),y*w*4);
+  return {data:out,width:w,height:h,x0,y0}}
+function readingOrder(items,mirror,W){
+  const c=it=>{const q=it.quad;return {x:(q[0].x+q[1].x+q[2].x+q[3].x)/4,y:(q[0].y+q[1].y+q[2].y+q[3].y)/4}};
+  items.forEach(it=>{const p=c(it);it.cx=mirror?W-p.x:p.x;it.cy=p.y;it.sz=Math.min(dist(it.quad[0],it.quad[1]),dist(it.quad[1],it.quad[2]))});
+  const s=items.slice().sort((a,b)=>a.cy-b.cy);const rows=[];
+  for(const it of s){const r=rows[rows.length-1];if(r&&Math.abs(it.cy-r.cy)<0.5*median(r.items.map(x=>x.sz))){r.items.push(it);r.cy=r.items.reduce((t,x)=>t+x.cy,0)/r.items.length}else rows.push({cy:it.cy,items:[it]})}
+  return rows.flatMap(r=>r.items.sort((a,b)=>a.cx-b.cx));
+}
+function fitSurface(xs,ys,vs,w,h){ // quadratische Fläche v(x,y) per kleinste Quadrate
+  const f=(x,y)=>{const u=x/w-0.5,v=y/h-0.5;return [1,u,v,u*u,u*v,v*v]};const n=6;const A=Array.from({length:n},()=>new Float64Array(n)),B=new Float64Array(n);
+  for(let i=0;i<xs.length;i++){const r=f(xs[i],ys[i]);for(let p=0;p<n;p++){B[p]+=r[p]*vs[i];for(let q=0;q<n;q++)A[p][q]+=r[p]*r[q]}}
+  for(let p=0;p<n;p++)A[p][p]+=1e-6*xs.length;
+  for(let c=0;c<n;c++){let m=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[m][c]))m=r;[A[c],A[m]]=[A[m],A[c]];[B[c],B[m]]=[B[m],B[c]];
+    for(let r=0;r<n;r++){if(r===c)continue;const k=A[r][c]/A[c][c];for(let q=c;q<n;q++)A[r][q]-=k*A[c][q];B[r]-=k*B[c]}}
+  const co=Array.from(B,(v,i)=>v/A[i][i]);return (x,y)=>{const r=f(x,y);let s=0;for(let i=0;i<n;i++)s+=co[i]*r[i];return s};
+}
+function label(mask,mw,mh,ox,oy,minA){ // zusammenhängende Flächen mit Randpunkten
+  const lab=new Int32Array(mw*mh);let n=0;const cs=[];
+  for(let i0=0;i0<mw*mh;i0++){if(!mask[i0]||lab[i0])continue;n++;const pts=[],idx=[];const q=[i0];lab[i0]=n;
+    while(q.length){const i=q.pop(),x=i%mw,y=(i/mw)|0;idx.push(i);let edge=false;
+      const nb=[x>0?i-1:-1,x<mw-1?i+1:-1,y>0?i-mw:-1,y<mh-1?i+mw:-1];
+      for(const j of nb){if(j<0){edge=true;continue}if(mask[j]){if(!lab[j]){lab[j]=n;q.push(j)}}else edge=true}
+      if(edge)pts.push({x:x+ox+0.5,y:y+oy+0.5})}
+    if(idx.length<minA)continue;cs.push({area:idx.length,pts,idx,mw,ox,oy})}
+  return cs}
+function detectCards(img,opts){
+  opts=opts||{};const S=opts.size||640;const ds=downscaleRGB(img,S),{R,G,B,w,h}=ds,N=w*h;
+  // Hintergrund: am Rand (3 %) gemessen, als sanft verlaufende Fläche (Lichtverlauf) angenähert
+  const bw=Math.max(2,Math.round(Math.min(w,h)*0.03));const xs=[],ys=[],vr=[],vg=[],vb=[];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(x>=bw&&y>=bw&&x<w-bw&&y<h-bw)continue;if((x+y)%2)continue;const i=y*w+x;xs.push(x);ys.push(y);vr.push(R[i]);vg.push(G[i]);vb.push(B[i])}
+  let fr=fitSurface(xs,ys,vr,w,h),fgc=fitSurface(xs,ys,vg,w,h),fb=fitSurface(xs,ys,vb,w,h);
+  // Ausreißer am Rand (Karte ragt hinein) verwerfen und neu anpassen
+  const res0=xs.map((x,i)=>Math.hypot(vr[i]-fr(x,ys[i]),vg[i]-fgc(x,ys[i]),vb[i]-fb(x,ys[i])));const lim=Math.max(12,median(res0)*3);
+  const keep=res0.map(v=>v<lim);const sel=a=>a.filter((_,i)=>keep[i]);
+  if(keep.filter(Boolean).length>50){fr=fitSurface(sel(xs),sel(ys),sel(vr),w,h);fgc=fitSurface(sel(xs),sel(ys),sel(vg),w,h);fb=fitSurface(sel(xs),sel(ys),sel(vb),w,h)}
+  const BR=new Float32Array(N),BG=new Float32Array(N),BB=new Float32Array(N);
+  for(let y=0;y<h;y+=4)for(let x=0;x<w;x+=4){const r=fr(x,y),g=fgc(x,y),b=fb(x,y);for(let yy=y;yy<Math.min(h,y+4);yy++)for(let xx=x;xx<Math.min(w,x+4);xx++){const i=yy*w+xx;BR[i]=r;BG[i]=g;BB[i]=b}}
+  // Abstand zum Hintergrund: Helligkeit (Schatten, Licht) zählt schwächer als Farbe
+  const D=new Float32Array(N);
+  for(let i=0;i<N;i++){const dr=R[i]-BR[i],dg=G[i]-BG[i],db=B[i]-BB[i];const dl=(dr+dg+db)/3;const cr=dr-dl,cg=dg-dl,cb=db-dl;
+    D[i]=Math.sqrt(cr*cr+cg*cg+cb*cb+(dl<0?0.25:0.6)*dl*dl)}
+  const bd=[];for(let i=0;i<xs.length;i++)if(keep[i])bd.push(D[ys[i]*w+xs[i]]);const noise=percentile(Float32Array.from(bd),0.9,1)||4;
+  const T=Math.max(22,noise*2.5);
+  const gray=new Float32Array(N);for(let i=0;i<N;i++)gray[i]=0.299*R[i]+0.587*G[i]+0.114*B[i];
+  const gb=blur(gray,w,h);const {mag,ang}=sobel(gb,w,h);
+  const bm=[];for(let i=0;i<xs.length;i++)if(keep[i]&&xs[i]>2&&ys[i]>2&&xs[i]<w-3&&ys[i]<h-3)bm.push(mag[ys[i]*w+xs[i]]);
+  const eth=Math.max(14,(percentile(Float32Array.from(bm),0.95,1)||4)*2.5);
+  const thr=Math.max(6,percentile(mag,0.80,3));
+  const bar=new Uint8Array(N);
+  for(let i=0;i<N;i++){if(D[i]>T||mag[i]>eth)bar[i]=1}
+  const barD=morph(bar,w,h,1,true);
+  // Hintergrund von außen fluten; was nicht erreicht wird, ist Vordergrund (Löcher gefüllt)
+  const bgm=new Uint8Array(N),st=[];
+  const push=i=>{if(!bgm[i]&&!barD[i]){bgm[i]=1;st.push(i)}};
+  for(let x=0;x<w;x++){push(x);push((h-1)*w+x)}for(let y=0;y<h;y++){push(y*w);push(y*w+w-1)}
+  while(st.length){const i=st.pop(),x=i%w;if(x>0)push(i-1);if(x<w-1)push(i+1);if(i>=w)push(i-w);if(i<N-w)push(i+w)}
+  const fgA=new Uint8Array(N);for(let i=0;i<N;i++)fgA[i]=bgm[i]?0:1;
+  // Variante B: eingeschlossene Lücken zwischen Karten, die wie Hintergrund aussehen, wieder zum Hintergrund zählen
+  const fgB=fgA.slice();let holes=0;
+  {const seen=new Uint8Array(N);for(let i0=0;i0<N;i0++){if(bgm[i0]||barD[i0]||seen[i0])continue;const q=[i0],idx=[];seen[i0]=1;let sd=0;
+    while(q.length){const i=q.pop(),x=i%w;idx.push(i);sd+=D[i];for(const j of [x>0?i-1:-1,x<w-1?i+1:-1,i>=w?i-w:-1,i<N-w?i+w:-1])if(j>=0&&!seen[j]&&!bgm[j]&&!barD[j]){seen[j]=1;q.push(j)}}
+    if(idx.length>N*0.004&&sd/idx.length<T*0.45){holes++;for(const i of idx)fgB[i]=0}}}
+  // Variante C: nur nach Farbe fluten (öffnet schmale Spalte, in denen Kanten beider Karten zusammenlaufen)
+  const fgC=new Uint8Array(N).fill(1);
+  {const lim2=T*0.6;const st2=[];const pc=i=>{if(fgC[i]&&D[i]<lim2){fgC[i]=0;st2.push(i)}};
+    for(let x=0;x<w;x++){pc(x);pc((h-1)*w+x)}for(let y=0;y<h;y++){pc(y*w);pc(y*w+w-1)}
+    while(st2.length){const i=st2.pop(),x=i%w;if(x>0)pc(i-1);if(x<w-1)pc(i+1);if(i>=w)pc(i-w);if(i<N-w)pc(i+w)}}
+  const er=Math.max(2,Math.round(Math.min(w,h)*0.008));
+  const minA=N*0.004,maxR=Math.round(Math.min(w,h)*0.06);
+  function shape(c,r){const hl=hull(c.pts);if(hl.length<3)return null;const mr2=minRect(hl);if(!mr2)return null;
+    const ex=r+0.5;const q=mr2.q;const cx=(q[0].x+q[2].x)/2,cy=(q[0].y+q[2].y)/2;
+    const a=mr2.a+2*ex,b=mr2.b+2*ex;const ux=(q[1].x-q[0].x)/mr2.a,uy=(q[1].y-q[0].y)/mr2.a;
+    const P=(s,t)=>({x:cx+s*ux-t*uy,y:cy+s*uy+t*ux});
+    const fill=(c.area+r*2*(mr2.a+mr2.b))/(a*b);const ratio=Math.min(a,b)/Math.max(a,b);
+    return {a,b,P,fill,area:a*b,ratio}}
+  // Liegt eine Trennlinie zwischen zwei Karten vor? Kante entlang der Linie
+  function sep(P,s0,t0,s1,t1){return sideSupport(P(s0,t0),P(s1,t1),mag,ang,w,h,thr,0.35)}
+  function grid(c,m,minSup){const {a,b,P}=c;let best=null;
+    for(let kx=1;kx<=6;kx++)for(let ky=1;ky<=6;ky++){const n2=kx*ky;if(n2<2||n2>24)continue;const cw=a/kx,ch=b/ky;const r=Math.min(cw,ch)/Math.max(cw,ch);if(r<0.6||r>0.86)continue;
+      if(Math.min(cw,ch)<Math.min(w,h)*0.05)continue;
+      let minS=1,sum=0,cnt=0;
+      for(let i=1;i<kx;i++){const s0=-a/2+cw*i;const v=sep(P,s0,-b/2+2,s0,b/2-2);minS=Math.min(minS,v);sum+=v;cnt++}
+      for(let j=1;j<ky;j++){const t0=-b/2+ch*j;const v=sep(P,-a/2+2,t0,a/2-2,t0);minS=Math.min(minS,v);sum+=v;cnt++}
+      if(minS<minSup)continue;
+      const score=m?-Math.abs(Math.log(cw*ch/m)):sum/cnt-Math.abs(r-CARD)*2+n2*0.01;
+      if(!best||score>best.score)best={kx,ky,score}}
+    return best}
+  function analyse(fg0){
+    const fg=morph(fg0,w,h,er,false); // trennt eng liegende Karten, entfernt Fransen
+    const comp=[],dbg=[];let rejected=0;
+    // Flächen, die nicht wie eine Karte aussehen, durch stärkeres Abtragen (Erosion) weiter trennen
+    function visit(c,r,depth){
+      const sh=shape(c,r);if(!sh)return;
+      const d0={fill:+sh.fill.toFixed(2),ratio:+sh.ratio.toFixed(2),area:Math.round(sh.area),r};sh.d0=d0;
+      const clean=sh.fill>=0.86&&sh.ratio>=0.6&&sh.ratio<=0.86;
+      if((!clean||sh.area>N*0.2)&&depth<8&&r<maxR){
+        let x0=1e9,y0=1e9,x1=0,y1=0;for(const i of c.idx){const x=i%c.mw+c.ox,y=((i/c.mw)|0)+c.oy;if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y}
+        const mw=x1-x0+1,mh=y1-y0+1;const sub=new Uint8Array(mw*mh);for(const i of c.idx){const x=i%c.mw+c.ox-x0,y=((i/c.mw)|0)+c.oy-y0;sub[y*mw+x]=1}
+        for(let k=2;r+k<=maxR;k+=2){const e=morph(sub,mw,mh,k,false);const parts=label(e,mw,mh,x0,y0,minA*0.5);
+          if(parts.length>=2){parts.forEach(p=>visit(p,r+k,depth+1));return}
+          if(!parts.length)break}
+      }
+      dbg.push(d0);
+      if(sh.fill>=0.72)comp.push(sh);else rejected+=sh.area;
+    }
+    label(fg,w,h,0,0,minA).forEach(c=>visit(c,er,0));
+    // Einzelkarten-Größe als Maßstab; größere Flächen in ein Raster kx × ky teilen, dessen Trennlinien als Kanten sichtbar sind
+    const singles=comp.filter(c=>c.ratio>=0.6&&c.ratio<=0.86&&c.fill>0.85);
+    const m=singles.length>=2?median(singles.map(c=>c.area)):0;const out=[];
+    for(const c of comp){const singleOK=c.ratio>=0.6&&c.ratio<=0.86;let best=null;
+      if(singleOK&&(!m||c.area<1.6*m)){if(c.area>N*0.2)best=grid(c,m,0.55)}
+      else best=grid(c,m,0.5)||(m?grid(c,m,0.25):null);
+      if(!best&&singleOK)best={kx:1,ky:1};
+      c.d0.grid=best?best.kx+"x"+best.ky:"-";
+      if(!best){rejected+=c.area;continue}
+      const {a,b,P}=c,cw=a/best.kx,ch=b/best.ky;
+      for(let i=0;i<best.kx;i++)for(let j=0;j<best.ky;j++){const s0=-a/2+cw*i,t0=-b/2+ch*j;out.push({q:[P(s0,t0),P(s0+cw,t0),P(s0+cw,t0+ch),P(s0,t0+ch)],area:cw*ch})}
+    }
+    const mc=out.length?median(out.map(o=>o.area)):1;
+    return {out,dbg,score:out.length-rejected/mc};
+  }
+  let A=analyse(fgA);
+  if(holes){const Bv=analyse(fgB);if(Bv.score>A.score)A=Bv}
+  {const Cv=analyse(fgC);if(Cv.score>A.score)A=Cv}
+  if(opts.debug){opts.debug.cands=A.dbg;opts.debug.mask={w,h,bar:Array.from(barD),fg:Array.from(fgA)}}
+  // In Originalgröße, mit detectQuad im Ausschnitt verfeinern
+  let res=[];
+  for(const o of A.out){
+    const q=orderQuad(o.q.map(p=>({x:p.x/ds.k,y:p.y/ds.k})));const area=polyArea(q);
+    const xs2=q.map(p=>p.x),ys2=q.map(p=>p.y);const L=Math.max(dist(q[0],q[1]),dist(q[1],q[2]));const mg=L*0.06;
+    let quad=q,refined=false;
+    try{const cr=crop(img,Math.min(...xs2)-mg,Math.min(...ys2)-mg,Math.max(...xs2)+mg,Math.max(...ys2)+mg);
+      const d=detectQuad(cr);
+      if(d&&d.score>0.35){const rq=d.q.map(p=>({x:p.x+cr.x0,y:p.y+cr.y0}));const ra=polyArea(rq);
+        const c1={x:(q[0].x+q[2].x)/2,y:(q[0].y+q[2].y)/2},c2={x:(rq[0].x+rq[2].x)/2,y:(rq[0].y+rq[2].y)/2};
+        if(ra>area*0.8&&ra<area*1.15&&dist(c1,c2)<L*0.06){quad=rq;refined=true}}}
+    catch(e){}
+    res.push({quad,refined,area:polyArea(quad)});
+  }
+  // Bruchstücke entfernen: deutlich kleiner als die typische Karte
+  if(res.length>=3){const m=median(res.map(r=>r.area));res=res.filter(r=>r.area>m*0.45)}
+  // Nur eine Karte, die fast das ganze Bild füllt? Dann wie beim Einzelfoto erkennen
+  if(res.length<=2){try{const d=detectQuad(img);if(d&&d.score>0.35&&polyArea(d.q)>img.width*img.height*0.25&&res.every(r=>polyArea(r.quad)<polyArea(d.q)*0.8))res=[{quad:d.q,refined:true}]}catch(e){}}
+  return readingOrder(res,!!opts.mirror,img.width).map(r=>({quad:r.quad,refined:r.refined}));
+}
 function processCard(img,opts){
-  opts=opts||{};const issues=[],warnings=[];const det=detectQuad(img);
+  opts=opts||{};const issues=[],warnings=[];const det=opts.quad?{q:opts.quad,score:1,r:null,sup:null}:detectQuad(img);
   let quad,found=!!(det&&det.score>0.35);
   if(found){quad=det.q}else{quad=[{x:0,y:0},{x:img.width-1,y:0},{x:img.width-1,y:img.height-1},{x:0,y:img.height-1}];
     issues.push("Die Kartenränder wurden nicht sicher erkannt. Legen Sie die Karte vollständig ins Bild, am besten auf einen ruhigen, dunklen Untergrund.")}
   let wd=(dist(quad[0],quad[1])+dist(quad[3],quad[2]))/2,ht=(dist(quad[0],quad[3])+dist(quad[1],quad[2]))/2;
   const longPx=Math.max(wd,ht);
   if(found){const r=Math.min(wd,ht)/Math.max(wd,ht);if(Math.abs(r-CARD)<0.06){if(wd<ht)wd=ht*CARD;else ht=wd*CARD}
-    if(longPx<550)issues.push("Die Karte ist zu klein im Bild. Gehen Sie näher heran, sodass die Karte das Bild fast ausfüllt.")}
+    if(longPx<(opts.minLong||550))issues.push(opts.smallMsg||"Die Karte ist zu klein im Bild. Gehen Sie näher heran, sodass die Karte das Bild fast ausfüllt.")}
   const maxLong=opts.maxLong||1600,k=Math.min(maxLong/Math.max(wd,ht),1.6);
   const W=Math.round(wd*k),Hh=Math.round(ht*k);
   const out=found?warp(img,quad,W,Hh,0.018):{data:new Uint8ClampedArray(img.data),width:img.width,height:img.height,inner:{x:0,y:0,w:img.width,h:img.height}};
@@ -177,8 +359,8 @@ function processCard(img,opts){
   else if(t.glareFrac>0.012)warnings.push("Leichte Spiegelung wurde abgeschwächt, ist aber noch sichtbar.");
   sharpen(out,0.45);
   return {image:{data:out.data,width:out.width,height:out.height},found,quad,score:det?det.score:0,issues,warnings,
-    metrics:{sharp:Math.round(sharp),glare:+(t.glareFrac*100).toFixed(2),mean:Math.round(t.meanIn),gamma:+t.gamma.toFixed(2),cardPx:Math.round(longPx),ratio:det?+det.r.toFixed(3):null,support:det?det.sup.map(v=>+v.toFixed(2)):null}};
+    metrics:{sharp:Math.round(sharp),glare:+(t.glareFrac*100).toFixed(2),mean:Math.round(t.meanIn),gamma:+t.gamma.toFixed(2),cardPx:Math.round(longPx),ratio:det&&det.r?+det.r.toFixed(3):null,support:det&&det.sup?det.sup.map(v=>+v.toFixed(2)):null}};
 }
-root.CardProc={processCard,detectQuad};
+root.CardProc={processCard,detectQuad,detectCards,readingOrder};
 })(typeof window!=="undefined"?window:globalThis);
 

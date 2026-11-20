@@ -1,5 +1,5 @@
 /* Fußball-Collector – App-Logik. Daten: siehe store.js (lokal auf dem Gerät). */
-const APP_VERSION="1.3.0";
+const APP_VERSION="1.5.0";
 const TYPES=["Rookie","Nummeriert","One-of-One","Autogramm","Patch / Trikot","Parallel / Refractor","Insert","Short Print","Graded"];
 const GOLD=new Set(["One-of-One","Autogramm","Patch / Trikot"]);
 const $=id=>document.getElementById(id);
@@ -20,6 +20,8 @@ function photoImg(id,alt,onerr){const im=new Image();im.alt=alt||"";Store.photoU
 function parsePreis(s){if(!s)return null;s=String(s).replace(/[€\s]/g,"");if(s.includes(","))s=s.replace(/\./g,"").replace(",",".");const n=parseFloat(s);return isFinite(n)?Math.round(n*100)/100:null}
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
 function tagsOf(c){const t=[...(c.besonderheiten||[])];if(c.nummer&&!t.includes("Nummeriert"))t.push("Nummeriert");if(/^\s*1\s*\/\s*1\s*$/.test(c.nummer||"")&&!t.includes("One-of-One"))t.push("One-of-One");if(c.grading&&!t.includes("Graded"))t.push("Graded");return t}
+function nameOf(c){return (c&&c.spieler)||"Unbekannte Karte"}
+function recogPending(c){return !!(c&&c.erkennungAngefragt)}
 function hasValue(c){return typeof c.marktwert==="number"&&isFinite(c.marktwert)}
 function fdate(s){try{return s?dfmt.format(new Date(s)):""}catch(e){return ""}}
 function signed(n){return (n>0?"+":n<0?"−":"±")+eur.format(Math.abs(n))}
@@ -40,7 +42,7 @@ function render(){
     if(club&&c.verein!==club)return false;
     if(lag&&c.lagerort!==lag)return false;
     if(typ&&!tagsOf(c).includes(typ))return false;
-    if(q){const h=[c.spieler,c.verein,c.serie,c.saison,c.nummer,c.notiz,c.grading,c.lagerort,...tagsOf(c)].join(" ").toLowerCase();if(!h.includes(q))return false}
+    if(q){const h=[nameOf(c),c.verein,c.serie,c.saison,c.nummer,c.notiz,c.grading,c.lagerort,...tagsOf(c)].join(" ").toLowerCase();if(!h.includes(q))return false}
     return true});
   const cmp={neu:(a,b)=>(b.erstellt||"").localeCompare(a.erstellt||""),spieler:(a,b)=>(a.spieler||"").localeCompare(b.spieler||"","de"),verein:(a,b)=>(a.verein||"").localeCompare(b.verein||"","de"),wertab:(a,b)=>(hasValue(b)?b.marktwert:-1)-(hasValue(a)?a.marktwert:-1),preisab:(a,b)=>(b.preis??-1)-(a.preis??-1),preisauf:(a,b)=>(a.preis??1e12)-(b.preis??1e12),kaufjahr:(a,b)=>(b.kaufjahr||0)-(a.kaufjahr||0)}[sort];
   list.sort(cmp);
@@ -59,13 +61,14 @@ function render(){
   const tb=$("rows");tb.textContent="";
   list.forEach(c=>{
     const tr=document.createElement("tr");tr.onclick=ev=>{if(!ev.target.closest("button,a"))openDetail(c.id)};
-    const t1=el("td");const th=el("button","thumb");th.type="button";th.setAttribute("aria-label","Foto vergrößern: "+c.spieler);
-    if(c.fotoVorne){const im=photoImg(c.fotoVorne,c.spieler,()=>{th.textContent="Foto fehlt"});im.loading="lazy";th.append(im);th.onclick=ev=>{ev.stopPropagation();openLight(c)}}else{th.textContent="Kein Foto";th.onclick=ev=>{ev.stopPropagation();openDetail(c.id)}}
+    const t1=el("td");const th=el("button","thumb");th.type="button";th.setAttribute("aria-label","Foto vergrößern: "+nameOf(c));
+    if(c.fotoVorne){const im=photoImg(c.fotoVorne,nameOf(c),()=>{th.textContent="Foto fehlt"});im.loading="lazy";th.append(im);th.onclick=ev=>{ev.stopPropagation();openLight(c)}}else{th.textContent="Kein Foto";th.onclick=ev=>{ev.stopPropagation();openDetail(c.id)}}
     t1.append(th);
-    const t2=el("td");t2.append(el("div","player",c.spieler||"—"),el("div","club",c.verein||""));
+    const t2=el("td");t2.append(el("div","player",nameOf(c)),el("div","club",c.verein||""));
+    if(recogPending(c))t2.append(el("span","chip find","Wird von Claude erkannt"));
     const bx=el("div","cellbtns");
     const vb=el("button","btn small","Ansehen");vb.type="button";vb.onclick=ev=>{ev.stopPropagation();openDetail(c.id)};
-    const eb=el("button","btn edit","✎ Ändern");eb.type="button";eb.setAttribute("aria-label","Karte ändern: "+c.spieler);eb.onclick=ev=>{ev.stopPropagation();openForm(c)};
+    const eb=el("button","btn edit","✎ Ändern");eb.type="button";eb.setAttribute("aria-label","Karte ändern: "+nameOf(c));eb.onclick=ev=>{ev.stopPropagation();openForm(c)};
     bx.append(vb,eb);t2.append(bx);
     const t3=el("td");t3.append(el("div","set",c.serie||"—"));if(c.saison)t3.append(el("div","club",c.saison));if(c.nummer)t3.append(el("div","serial","# "+c.nummer));if(c.grading)t3.append(el("div","club",c.grading));
     const t4=el("td");const ch=el("div","chips");tagsOf(c).forEach(t=>ch.append(el("span","chip"+(GOLD.has(t)?" gold":""),t)));t4.append(ch);
@@ -93,13 +96,25 @@ function renderDetail(c){
   const p=$("detail");const keepScroll=p.scrollTop;p.textContent="";
   const top=el("div","topbar");const back=el("button","btn back","← Zurück zur Übersicht");back.type="button";back.id="btnDetailBack";back.onclick=closeDetail;
   const ed=el("button","btn edit","✎ Ändern");ed.type="button";ed.onclick=()=>openForm(c);top.append(back,ed);p.append(top);
-  const h=el("div");const h2=el("h2",null,c.spieler||"—");h2.id="dName";h.append(h2,el("div","club",c.verein||""));p.append(h);
+  const h=el("div");const h2=el("h2",null,nameOf(c));h2.id="dName";h.append(h2,el("div","club",c.verein||""));p.append(h);
   const ph=el("div","dphotos");
   [["Vorderseite",c.fotoVorne],["Rückseite",c.fotoHinten]].forEach(([lbl,id])=>{const b=el("button");b.type="button";b.setAttribute("aria-label",lbl+" vergrößern");
-    if(id){b.append(photoImg(id,c.spieler+" "+lbl,()=>{b.textContent="Foto fehlt"}));b.onclick=()=>openLight(c)}else{b.textContent="Kein Foto ("+lbl+")";b.style.cursor="default"}ph.append(b)});
+    if(id){b.append(photoImg(id,nameOf(c)+" "+lbl,()=>{b.textContent="Foto fehlt"}));b.onclick=()=>openLight(c)}else{b.textContent="Kein Foto ("+lbl+")";b.style.cursor="default"}ph.append(b)});
   p.append(ph);
+  // Rückseite (nachträglich) hinzufügen oder ersetzen
+  const ba=el("div","backadd");
+  const bc=el("button","btn small"+(c.fotoHinten?"":" primary"),c.fotoHinten?"Rückseite neu fotografieren":"Rückseite fotografieren");bc.type="button";
+  const bl=el("button","btn small",c.fotoHinten?"Rückseite aus Fotos ersetzen":"Rückseite aus Fotos");bl.type="button";
+  bc.onclick=()=>{openForm(c,"back");$("camBack").click()};bl.onclick=()=>{openForm(c,"back");$("libBack").click()};
+  ba.append(bc,bl);
+  if(!c.fotoHinten&&c.stapel){const bb=el("button","btn small","Mehrere Rückseiten auf einem Foto");bb.type="button";bb.onclick=()=>{closeDetail();openBulk("rueck",c.stapel.id)};ba.append(bb)}
+  p.append(ba);
+  if(recogPending(c)){const n=el("div","qbox warn");n.append(el("strong",null,"Wird von Claude erkannt"));
+    n.append(el("div",null,"Spieler, Verein, Serie, Saison, Nummerierung und Besonderheiten liest Claude beim nächsten Sonntagslauf (23:59 Uhr) aus dem Foto"+(c.fotoHinten?" der Vorder- und Rückseite":"")+". Du kannst die Angaben auch vorher unter „Ändern“ selbst eintragen."));
+    if(!Sync.connected())n.append(el("div","hint","Dafür muss die App mit Dropbox verbunden sein."));p.append(n)}
+  else if(c.erkennungHinweis){p.append(el("div","hint","Erkennung: "+c.erkennungHinweis))}
   if(c.fotoVorneOriginal||c.fotoHintenOriginal){const ob=el("button","btn small","Originalfotos ansehen");ob.type="button";ob.style.alignSelf="flex-start";
-    ob.onclick=()=>openLight({spieler:c.spieler+" (Original)",fotoVorne:c.fotoVorneOriginal||c.fotoVorne,fotoHinten:c.fotoHintenOriginal||c.fotoHinten});p.append(ob)}
+    ob.onclick=()=>openLight({spieler:nameOf(c)+" (Original)",fotoVorne:c.fotoVorneOriginal||c.fotoVorne,fotoHinten:c.fotoHintenOriginal||c.fotoHinten});p.append(ob)}
   // Marktwert
   const vb=el("div","valuebox");vb.append(el("h3",null,"Marktwert"));
   if(hasValue(c)){
@@ -144,7 +159,7 @@ $("detailSheet").addEventListener("click",e=>{if(e.target===$("detailSheet"))clo
 function openLight(c){
   const lb=$("lightbox");lb.textContent="";
   const b=el("button","btn back","← Zurück");b.type="button";lb.append(b);
-  [c.fotoVorne,c.fotoHinten].filter(Boolean).forEach((id,i)=>lb.append(photoImg(id,c.spieler+(i?" Rückseite":" Vorderseite"))));
+  [c.fotoVorne,c.fotoHinten].filter(Boolean).forEach((id,i)=>lb.append(photoImg(id,nameOf(c)+(i?" Rückseite":" Vorderseite"))));
   lb.hidden=false;lb.onclick=()=>{lb.hidden=true};b.focus();
 }
 
@@ -152,7 +167,7 @@ function openLight(c){
 function setPv(which,url){const pv=$(which==="front"?"pvFront":"pvBack");pv.classList.remove("busy");pv.textContent="";if(url){const im=new Image();im.src=url;im.alt="";pv.append(im)}else pv.textContent="Noch kein Foto"}
 function setPvId(which,id){if(!id){setPv(which,"");return}Store.photoURL(id).then(u=>setPv(which,u))}
 function money(n){return n!=null&&isFinite(n)?String(n).replace(".",","):""}
-function openForm(c){
+function openForm(c,focus){
   editing=c||null;$("formTitle").textContent=c?"Karte ändern":"Karte hinzufügen";$("btnSave").textContent=c?"Änderungen speichern":"Speichern";
   $("iSpieler").value=c?.spieler||"";$("iVerein").value=c?.verein||"";$("iSerie").value=c?.serie||"";$("iSaison").value=c?.saison||"";
   $("iNummer").value=c?.nummer||"";$("iGrading").value=c?.grading||"";$("iPreis").value=money(c?.preis);
@@ -164,7 +179,7 @@ function openForm(c){
   ["front","back"].forEach(w=>{$("tools"+SIDE[w]).hidden=true;$("q"+SIDE[w]).hidden=true});
   ["camFront","libFront","camBack","libBack"].forEach(id=>{$(id).value=""});
   $("formErr").hidden=true;$("btnDel").hidden=!c;$("btnDelYes").hidden=true;$("btnDelNo").hidden=true;
-  $("formSheet").hidden=false;$("form").scrollTop=0;setTimeout(()=>$("btnClose").focus(),50);
+  $("formSheet").hidden=false;$("form").scrollTop=0;setTimeout(()=>{if(focus==="back")$("pvBack").scrollIntoView({block:"center"});else $("btnClose").focus()},50);
 }
 function closeForm(){$("formSheet").hidden=true;editing=null}
 
@@ -230,7 +245,8 @@ async function dropUnusedPhotos(ids,exceptId){
 $("form").addEventListener("submit",async e=>{
   e.preventDefault();const err=$("formErr");err.hidden=true;
   const fail=t=>{err.textContent=t;err.hidden=false};
-  const spieler=$("iSpieler").value.trim();if(!spieler)return fail("Bitte den Namen des Spielers eintragen.");
+  const spieler=$("iSpieler").value.trim();
+  if(!spieler&&!pending.front&&!photo.front)return fail("Bitte den Namen des Spielers eintragen oder ein Foto der Vorderseite hinzufügen. Dann erkennt Claude die Karte.");
   const preisRaw=$("iPreis").value.trim();const preis=parsePreis(preisRaw);
   if(preisRaw&&preis==null)return fail("Der Ankaufspreis ist keine gültige Zahl, z. B. 24,90.");
   const wertRaw=$("iWert").value.trim();const wert=parsePreis(wertRaw);
@@ -257,6 +273,8 @@ $("form").addEventListener("submit",async e=>{
     const oldWert=before&&hasValue(before)?before.marktwert:null;
     data.marktwert=wert;
     if(wert!==oldWert){data.bewertetAm=wert!=null?new Date().toISOString():null;data.marktwertQuellen=[]}
+    data.erkennungAngefragt=!spieler;
+    if(!spieler&&!(before&&before.erkennungAngefragt))data.erkennungAngefragtAm=new Date().toISOString();
     if(before){
       await Store.putCard({...before,...data});
       await dropUnusedPhotos(photoIds(before).filter(id=>!photoIds({...before,...data}).includes(id)),null);
@@ -277,8 +295,122 @@ $("btnDelYes").onclick=async()=>{
   catch(e){$("formErr").textContent="Löschen fehlgeschlagen.";$("formErr").hidden=false}
 };
 $("btnAdd").onclick=()=>openForm(null);
+$("btnBulk").onclick=()=>openBulk("neu");
 $("btnClose").onclick=closeForm;
 $("formSheet").addEventListener("click",e=>{if(e.target===$("formSheet"))closeForm()});
+
+/* Mehrere Karten per Foto */
+let bulk={mode:"neu",res:null,items:[],busy:false,stapel:"",gen:0};
+function batches(){
+  const m=new Map();cards.forEach(c=>{if(!c.stapel||!c.stapel.id)return;let b=m.get(c.stapel.id);if(!b){b={id:c.stapel.id,am:c.stapel.am||c.erstellt,karten:[]};m.set(b.id,b)}b.karten.push(c)});
+  return [...m.values()].sort((a,b)=>(b.am||"").localeCompare(a.am||""));
+}
+function candidates(){
+  if(bulk.stapel&&bulk.stapel!=="alle"){const b=batches().find(x=>x.id===bulk.stapel);if(b)return b.karten.slice().sort((a,b2)=>(a.stapel.nr||0)-(b2.stapel.nr||0))}
+  return cards.filter(c=>!c.fotoHinten).sort((a,b)=>(b.erstellt||"").localeCompare(a.erstellt||""));
+}
+function candLabel(c){return (c.stapel&&c.stapel.nr?"Nr. "+c.stapel.nr+" · ":"")+nameOf(c)+(c.fotoHinten?" (hat schon Rückseite)":"")}
+function assignBacks(){
+  if(!bulk.res)return;const cs=candidates();const ord=Bulk.order(bulk.items,$("bMirror").checked,bulk.res.width);
+  const perNr=bulk.stapel&&bulk.stapel!=="alle"; // Sammelfoto: Position k gehört zur Karte mit Nr. k+1
+  ord.forEach((idx,k)=>{const c=perNr?cs.find(x=>x.stapel&&x.stapel.nr===k+1):cs[k];bulk.items[idx].target=c?c.id:""});
+}
+function openBulk(mode,stapel){
+  if(bulk.busy)return;
+  bulk={mode:mode||"neu",res:null,items:[],busy:false,stapel:stapel||"",gen:bulk.gen+1};
+  if(bulk.mode==="rueck"&&!bulk.stapel){const b=batches().find(x=>x.karten.some(c=>!c.fotoHinten));bulk.stapel=b?b.id:"alle"}
+  ["bLager","bKaufjahr","bPreis","bNotiz"].forEach(id=>$(id).value="");
+  $("bulkErr").hidden=true;renderBulk();$("bulkSheet").hidden=false;setTimeout(()=>$("btnBulkClose").focus(),50);
+}
+function closeBulk(){if(bulk.busy)return;$("bulkSheet").hidden=true;bulk.items.forEach(it=>{if(it.url)URL.revokeObjectURL(it.url)});bulk={...bulk,res:null,items:[]}}
+function bulkStatus(t){$("bulkStatus").textContent=t||"";$("bulkStatus").hidden=!t}
+function renderBulk(){
+  const neu=bulk.mode==="neu";
+  $("bmNeu").classList.toggle("on",neu);$("bmRueck").classList.toggle("on",!neu);$("bmNeu").setAttribute("aria-selected",neu);$("bmRueck").setAttribute("aria-selected",!neu);
+  $("bulkIntro").textContent=neu
+    ?"Lege mehrere Karten mit etwas Abstand nebeneinander auf einen ruhigen, einfarbigen Untergrund (am besten dunkel) und fotografiere sie gerade von oben. Die App erkennt jede Karte, schneidet sie einzeln zu und legt sie als eigene Karte an. Bis etwa 12 Karten pro Foto werden die Bilder gut scharf."
+    :"Drehe die Karten an Ort und Stelle um und fotografiere die Rückseiten genauso. Die App ordnet jede Rückseite der passenden Karte zu; prüfe die Zuordnung unter jedem Bild.";
+  $("bulkRueckOpts").hidden=neu;
+  if(!neu){const sel=$("bStapel");sel.textContent="";
+    batches().forEach(b=>{const o=el("option",null,"Sammelfoto vom "+fdate(b.am)+" · "+b.karten.length+" Karten ("+b.karten.filter(c=>!c.fotoHinten).length+" ohne Rückseite)");o.value=b.id;sel.append(o)});
+    const o=el("option",null,"Alle Karten ohne Rückseite ("+cards.filter(c=>!c.fotoHinten).length+")");o.value="alle";sel.append(o);
+    sel.value=bulk.stapel||"alle";if(sel.value!==(bulk.stapel||"alle")){sel.value="alle";bulk.stapel="alle"}}
+  // Übersicht
+  const ov=$("bulkOverview");ov.textContent="";ov.hidden=!bulk.res;
+  if(bulk.res){const cv=document.createElement("canvas");Bulk.drawOverview(cv,bulk.res,i=>bulk.items[i].use);cv.setAttribute("role","img");cv.setAttribute("aria-label",bulk.items.length+" Karten erkannt");ov.append(cv)}
+  // Kacheln
+  const tl=$("bulkTiles");tl.textContent="";const cs=neu?[]:candidates();
+  bulk.items.forEach((it,i)=>{
+    const t=el("div","tile"+(it.use?"":" off"));
+    const head=el("div","row");head.append(el("span","tn",String(i+1)));
+    const lab=el("label","chk");const cb=document.createElement("input");cb.type="checkbox";cb.checked=it.use;cb.onchange=()=>{it.use=cb.checked;renderBulk()};lab.append(cb," übernehmen");head.append(lab);t.append(head);
+    const ph=el("div","ph");const im=new Image();im.alt="Karte "+(i+1);if(!it.url)it.url=URL.createObjectURL(it.edited);im.src=it.url;ph.append(im);
+    if(neu)t.append(ph);
+    else{const pr=el("div","pair");const a=el("div");a.append(ph,el("small",null,"Rückseite"));const b=el("div");const ph2=el("div","ph");const c=cards.find(x=>x.id===it.target);
+      if(c&&c.fotoVorne)ph2.append(photoImg(c.fotoVorne,nameOf(c)));else ph2.append(el("span","hint",c?"kein Foto":"–"));b.append(ph2,el("small",null,"Vorderseite"));pr.append(a,b);t.append(pr);
+      const sel=document.createElement("select");sel.setAttribute("aria-label","Rückseite "+(i+1)+" gehört zu");const o0=el("option",null,"– keiner Karte zuordnen –");o0.value="";sel.append(o0);
+      cs.forEach(c2=>{const o=el("option",null,candLabel(c2));o.value=c2.id;sel.append(o)});sel.value=it.target||"";sel.onchange=()=>{it.target=sel.value;renderBulk()};t.append(sel)}
+    const q=[...it.issues,...it.warnings];if(q.length)t.append(el("div","qs"+(it.issues.length?" bad":""),q.join(" ")));
+    const row=el("div","row");const rb=el("button","btn small","↻ Drehen");rb.type="button";rb.onclick=async()=>{rb.disabled=true;try{it.edited=await Bulk.rotate(it.edited);it.orig=await Bulk.rotate(it.orig);if(it.url)URL.revokeObjectURL(it.url);it.url=null}catch(e){}renderBulk()};row.append(rb);
+    if(neu){const inp=document.createElement("input");inp.type="text";inp.placeholder="Spieler (optional)";inp.value=it.spieler||"";inp.setAttribute("aria-label","Spieler von Karte "+(i+1)+" (optional)");inp.oninput=()=>{it.spieler=inp.value};t.append(inp)}
+    t.append(row);tl.append(t)});
+  const n=bulk.items.filter(it=>it.use&&(neu||it.target)).length;
+  $("bulkCommon").hidden=!neu||!bulk.items.length;
+  $("btnBulkSave").hidden=!bulk.items.length;$("btnBulkSave").disabled=!n||bulk.busy;
+  $("btnBulkSave").textContent=neu?(n===1?"1 Karte anlegen":n+" Karten anlegen"):(n===1?"1 Rückseite speichern":n+" Rückseiten speichern");
+  document.querySelectorAll(".bulkpick .btn").forEach(b=>b.classList.toggle("primary",!bulk.items.length&&b.htmlFor==="bulkCam"));
+}
+async function bulkPick(file){
+  if(!file||!file.type.startsWith("image/")||bulk.busy)return;
+  const gen=bulk.gen;bulk.busy=true;bulk.items.forEach(it=>{if(it.url)URL.revokeObjectURL(it.url)});bulk.items=[];bulk.res=null;$("bulkErr").hidden=true;renderBulk();
+  bulkStatus("Foto wird ausgewertet …");
+  try{
+    const res=await Bulk.process(file,{onProgress:(i,n)=>{if(gen===bulk.gen)bulkStatus(n?"Karte "+Math.min(i+1,n)+" von "+n+" wird zugeschnitten …":"Karten werden gesucht …")}});
+    if(gen!==bulk.gen)return;
+    bulk.res=res;bulk.items=res.items.map(it=>({...it,use:true,spieler:"",target:""}));
+    if(bulk.mode==="rueck")assignBacks();
+    bulkStatus(res.items.length?res.items.length+" Karte"+(res.items.length===1?"":"n")+" erkannt. Prüfe die Bilder und nimm falsche mit dem Haken bei „übernehmen“ heraus."
+      :"Auf dem Foto wurde keine Karte erkannt. Lege die Karten mit etwas Abstand auf einen dunklen, einfarbigen Untergrund und fotografiere gerade von oben.");
+  }catch(e){console.error(e);if(gen===bulk.gen)bulkStatus("Das Foto konnte nicht ausgewertet werden"+(e&&e.message?" ("+e.message+")":"")+". Versuche es bitte mit einem anderen Foto.")}
+  finally{if(gen===bulk.gen){bulk.busy=false;renderBulk()}}
+}
+$("bulkCam").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";bulkPick(f)});
+$("bulkLib").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";bulkPick(f)});
+$("bmNeu").onclick=()=>{if(bulk.mode!=="neu")openBulk("neu")};
+$("bmRueck").onclick=()=>{if(bulk.mode!=="rueck")openBulk("rueck")};
+$("bStapel").onchange=()=>{bulk.stapel=$("bStapel").value;assignBacks();renderBulk()};
+$("bMirror").onchange=()=>{assignBacks();renderBulk()};
+$("btnBulkClose").onclick=closeBulk;
+$("bulkSheet").addEventListener("click",e=>{if(e.target===$("bulkSheet"))closeBulk()});
+$("btnBulkSave").onclick=async()=>{
+  const err=$("bulkErr");err.hidden=true;const fail=t=>{err.textContent=t;err.hidden=false};
+  const neu=bulk.mode==="neu";const sel=bulk.items.filter(it=>it.use&&(neu||it.target));if(!sel.length)return;
+  let preis=null,kj=null;
+  if(neu){const pr=$("bPreis").value.trim();preis=parsePreis(pr);if(pr&&preis==null)return fail("Der Ankaufspreis ist keine gültige Zahl, z. B. 2,50.");
+    const k=$("bKaufjahr").value.trim();if(k&&!/^(19|20)\d\d$/.test(k))return fail("Bitte das Kaufjahr vierstellig eintragen, z. B. 2026.");kj=k?Number(k):null}
+  else{const ids=sel.map(it=>it.target);if(new Set(ids).size!==ids.length)return fail("Zwei Rückseiten sind derselben Karte zugeordnet. Bitte die Zuordnung prüfen.")}
+  const btn=$("btnBulkSave");btn.disabled=true;bulk.busy=true;const txt=btn.textContent;btn.textContent="Speichert …";
+  let n=0;
+  try{
+    const jetzt=new Date().toISOString();const stapelId=Store.newId();
+    for(const it of sel){if(it.saved){n++;continue}
+      const idE=await Store.putPhoto(it.edited),idO=await Store.putPhoto(it.orig);
+      if(neu){const nr=bulk.items.indexOf(it)+1;const sp=(it.spieler||"").trim();
+        await Store.putCard({id:Store.newId(),erstellt:new Date().toISOString(),spieler:sp,verein:"",serie:"",saison:"",nummer:"",grading:"",besonderheiten:[],
+          preis,kaufjahr:kj,notiz:$("bNotiz").value.trim(),lagerort:$("bLager").value.trim(),fotoVorne:idE,fotoVorneOriginal:idO,fotoHinten:null,
+          marktwert:null,bewertungHinweis:"",marktwertQuellen:[],bewertungAngefragt:true,bewertungAngefragtAm:jetzt,
+          erkennungAngefragt:true,erkennungAngefragtAm:jetzt,stapel:{id:stapelId,nr,am:jetzt}})}
+      else{const c=cards.find(x=>x.id===it.target);if(!c)continue;const old=[c.fotoHinten,c.fotoHintenOriginal].filter(Boolean);
+        const upd={...c,fotoHinten:idE,fotoHintenOriginal:idO};await Store.putCard(upd);
+        await dropUnusedPhotos(old.filter(id=>!photoIds(upd).includes(id)),null)}
+      it.saved=true;n++;
+    }
+    bulk.busy=false;closeBulk();
+    showMsg(neu?n+" Karte"+(n===1?"":"n")+" angelegt. Claude erkennt Spieler, Set und Marktwert beim nächsten Sonntagslauf"+(Sync.connected()?".":" – dafür die App mit Dropbox verbinden.")
+      :n+" Rückseite"+(n===1?"":"n")+" gespeichert.");
+  }catch(e){console.error(e);fail((n?n+" gespeichert, dann ":"")+(e&&e.name==="QuotaExceededError"?"ist der Speicherplatz auf diesem Gerät voll.":"ist das Speichern fehlgeschlagen. Bitte noch einmal versuchen."))}
+  finally{bulk.busy=false;btn.disabled=false;btn.textContent=txt}
+};
 
 /* Sichern & Laden */
 function menuMsg(t){$("menuMsg").textContent=t;$("menuMsg").hidden=!t}
@@ -317,7 +449,7 @@ $("btnCsv").onclick=()=>{
   saveFile("fussballkarten.csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("lightbox").hidden)$("lightbox").hidden=true;else if(!$("menuSheet").hidden)closeMenu();else if(!$("formSheet").hidden)closeForm();else if(!$("detailSheet").hidden)closeDetail()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("lightbox").hidden)$("lightbox").hidden=true;else if(!$("formSheet").hidden)closeForm();else if(!$("bulkSheet").hidden)closeBulk();else if(!$("menuSheet").hidden)closeMenu();else if(!$("formSheet").hidden)closeForm();else if(!$("detailSheet").hidden)closeDetail()}});
 ["q","fClub","fType","fLager","sort"].forEach(id=>$(id).addEventListener("input",render));
 
 /* Dropbox */
@@ -340,7 +472,7 @@ $("btnDisconnect").onclick=async()=>{await Sync.disconnect();renderCloud();menuM
 $("lnkCode").onclick=async e=>{e.preventDefault();const w=window.open("about:blank","_blank");try{const u=await Sync.codeUrl();if(w)w.location.href=u;else location.href=u}catch(err){if(w)w.close();menuMsg(err.message)}};
 $("btnCode").onclick=async()=>{const c=$("iCode").value;if(!c.trim())return;menuMsg("Wird angemeldet …");
   try{await Sync.finishWithCode(c);$("iCode").value="";menuMsg("Mit Dropbox verbunden.");renderCloud();Sync.sync()}catch(e){menuMsg("Anmeldung fehlgeschlagen: "+e.message)}};
-Sync.onStatus((st,extra)=>{renderCloud();if(extra&&extra.bewertet)showMsg("Neue Marktwerte von Claude übernommen ("+extra.bewertet+" Karte"+(extra.bewertet===1?"":"n")+").");if(extra&&extra.importiert){const r=extra.importiert;showMsg("Sicherung aus der Dropbox eingespielt: "+r.neu+" neue Karte"+(r.neu===1?"":"n")+", "+r.akt+" aktualisiert.")}});
+Sync.onStatus((st,extra)=>{renderCloud();if(extra&&extra.erkannt)showMsg("Claude hat "+extra.erkannt+" Karte"+(extra.erkannt===1?"":"n")+" anhand der Fotos erkannt.");if(extra&&extra.bewertet)showMsg("Neue Marktwerte von Claude übernommen ("+extra.bewertet+" Karte"+(extra.bewertet===1?"":"n")+").");if(extra&&extra.importiert){const r=extra.importiert;showMsg("Sicherung aus der Dropbox eingespielt: "+r.neu+" neue Karte"+(r.neu===1?"":"n")+", "+r.akt+" aktualisiert.")}});
 
 async function reload(){try{cards=await Store.allCards()}catch(e){showMsg("Die Sammlung konnte nicht geladen werden. Bitte lade die Seite neu.")}render()}
 Store.onChange(reload);
