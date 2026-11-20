@@ -81,7 +81,7 @@ const Store={
       const blob=dataURLToBlob(url);
       await putAll(d,"fotos",[{id,blob,type:blob.type,hochgeladen:false}]);
     }
-    for(const c of obj.karten){if(!c||typeof c!=="object"||!c.spieler)continue;if(!c.id)c.id=newId();
+    for(const c of obj.karten){if(!c||typeof c!=="object"||!(c.spieler||c.fotoVorne))continue;if(!c.id)c.id=newId();
       vorhanden.has(c.id)?akt++:neu++;c.geaendert=jetzt;
       await putAll(d,"karten",[c]);}
     const g=(await Store.getMeta("geloescht"))||{};let gg=false;for(const c of obj.karten)if(c&&c.id&&g[c.id]){delete g[c.id];gg=true}
