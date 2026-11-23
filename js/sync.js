@@ -90,7 +90,9 @@ async function importFromDropbox(){
   listeners.forEach(fn=>{try{fn(status,{importiert:r})}catch(e){}});
 }
 /* Bewertungsdateien "bewertung-*.json": legt die wöchentliche Claude-Bewertung im App-Ordner ab.
-   Inhalt: {app:"Fussball-Collector", art:"bewertung", karten:{<id>:{marktwert, marktwertQuellen, bewertetAm, bewertungHinweis}}} */
+   Inhalt: {app:"Fussball-Collector", art:"bewertung", karten:{<id>:{marktwert, marktwertQuellen, bewertetAm, bewertungHinweis,
+     erkennung:{spieler, verein, serie, saison, nummer, grading, setNr, besonderheiten[], hinweis}}}}
+   "erkennung" kommt für Karten, die per Foto angelegt wurden (erkennungAngefragt), und füllt nur leere Felder. */
 async function listRoot(){
   let r=await call(API+"/2/files/list_folder",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:""})});
   let j=await r.json(),out=[...j.entries];
@@ -105,17 +107,29 @@ async function loadValuations(){
     catch(e){console.warn("Bewertungsdatei unlesbar",f.name)}}
   return out;
 }
+const ERKENNUNG_FELDER=["spieler","verein","serie","saison","nummer","grading","setNr"];
+const BESONDERHEITEN=["Rookie","Nummeriert","One-of-One","Autogramm","Patch / Trikot","Parallel / Refractor","Insert","Short Print","Graded"];
+/* Erkennung aus dem Foto (v.erkennung): füllt nur leere Felder, eigene Eingaben bleiben unangetastet. */
+function applyRecognition(c,e,jetzt){
+  if(!e||typeof e!=="object")return false;
+  for(const k of ERKENNUNG_FELDER){const v=e[k];if(typeof v==="string"&&v.trim()&&!(c[k]&&String(c[k]).trim()))c[k]=v.trim()}
+  if(Array.isArray(e.besonderheiten)){const s=new Set(c.besonderheiten||[]);e.besonderheiten.forEach(x=>{if(BESONDERHEITEN.includes(x))s.add(x)});c.besonderheiten=[...s]}
+  c.erkennungAngefragt=false;c.erkanntAm=jetzt;
+  c.erkennungHinweis=typeof e.hinweis==="string"?e.hinweis:"";
+  c.geaendert=jetzt;return true;
+}
 function applyValuations(karten,bewertungen){
-  let n=0;const jetzt=new Date().toISOString();
+  let n=0,erkannt=0;const jetzt=new Date().toISOString();
   for(const b of bewertungen)for(const [id,v] of Object.entries(b.karten)){
     const c=karten.find(k=>k.id===id);if(!c||!v||typeof v!=="object")continue;
+    if(v.erkennung&&(c.erkennungAngefragt||!c.spieler)&&applyRecognition(c,v.erkennung,jetzt))erkannt++;
     if(c.bewertetAm&&v.bewertetAm&&t(v.bewertetAm)<=t(c.bewertetAm)&&!c.bewertungAngefragt)continue;
     if(typeof v.marktwert==="number"&&isFinite(v.marktwert)){c.marktwert=Math.round(v.marktwert*100)/100;c.marktwertQuellen=Array.isArray(v.marktwertQuellen)?v.marktwertQuellen:[]}
     if(v.bewertetAm)c.bewertetAm=v.bewertetAm;
     if(typeof v.bewertungHinweis==="string")c.bewertungHinweis=v.bewertungHinweis;
     c.bewertungAngefragt=false;c.geaendert=jetzt;n++;
   }
-  return n;
+  return {n,erkannt};
 }
 async function syncOnce(){
   await importFromDropbox();
@@ -127,7 +141,7 @@ async function syncOnce(){
     const local={karten:await Store.allCards(),geloescht:(await Store.getMeta("geloescht"))||{}};
     const m=merge(local.karten,local.geloescht,remote.karten,remote.geloescht);
     m.karten=m.karten.map(c=>({...c}));
-    const bewertet=bewertungen.length?applyValuations(m.karten,bewertungen):0;
+    const ap=bewertungen.length?applyValuations(m.karten,bewertungen):{n:0,erkannt:0};const bewertet=ap.n,erkannt=ap.erkannt;
     // Fotos zuerst hochladen, damit andere Geräte sie finden, sobald die Karte erscheint
     for(const c of m.karten)for(const id of photoIds(c)){
       const r=await Store.getPhotoRecord(id);if(r&&!r.hochgeladen){
@@ -138,10 +152,11 @@ async function syncOnce(){
       try{await upload("/karten.json",new Blob([body],{type:"application/json"}),rem?{".tag":"update",update:rem.rev}:"add")}
       catch(e){if(e.status===409&&/conflict/.test(e.summary))continue;throw e} // jemand anderes war schneller: neu laden und nochmal
     }
-    if(!same(m,local)||bewertet)await Store.replaceAll(m.karten,m.geloescht);
+    if(!same(m,local)||bewertet||erkannt)await Store.replaceAll(m.karten,m.geloescht);
     // Eingespielte Bewertungsdateien entfernen
     for(const b of bewertungen){try{await remove(b.path)}catch(e){console.warn(e)}}
     if(bewertet)listeners.forEach(fn=>{try{fn(status,{bewertet})}catch(e){}});
+    if(erkannt)listeners.forEach(fn=>{try{fn(status,{erkannt})}catch(e){}});
     // Gelöschte Fotos auch in der Dropbox entfernen
     const q=(await Store.getMeta("fotosLoeschen"))||[];
     if(q.length){const still=new Set(m.karten.flatMap(photoIds));const rest=[];
